@@ -1,5 +1,11 @@
 [workspace]
-members = ["crates/*"]
+members = []
 resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/ratplier/stock"
 
 [workspace.dependencies]
