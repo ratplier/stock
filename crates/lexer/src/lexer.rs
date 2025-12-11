@@ -3,6 +3,8 @@ use crate::Token;
 #[derive(Debug, PartialEq, Clone)]
 pub enum LexerError {
     MultipleDecimalPoints,
+    TrailingUnderscore,
+    TrailingDecimal,
     InvalidSymbol,
 }
 
@@ -23,7 +25,7 @@ impl<'src> Lexer<'src> {
         if index >= self.source.len() {
             return None
         }
-
+        
         Some(self.source[self.cursor] as char)
     }
 
@@ -63,6 +65,18 @@ impl Lexer<'_> {
         }
 
         let slice = &self.source[start..self.cursor];
+        let check_trailing = |c: u8| {
+            slice[slice.len() - 1] == c
+        };
+
+        if check_trailing(b'_') {
+            return Token::Error(LexerError::TrailingUnderscore)
+        }
+
+        if decimal_seen && check_trailing(b'.') {
+            return Token::Error(LexerError::TrailingDecimal)
+        }
+
         let number = String::from_utf8_lossy(slice)
             .replace("_", "");
 
