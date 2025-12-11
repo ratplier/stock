@@ -1,17 +1,21 @@
 use crate::Token;
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum LexerError {
+    MultipleDecimalPoints,
+    InvalidSymbol,
+}
+
 pub struct Lexer<'src> {
-    source: &'src str,
+    source: &'src [u8],
     cursor: usize,
 }
 
 impl<'src> Lexer<'src> {
     fn new(source: &'src str) -> Self {
-        Self { source, cursor: 0 }    
-    }
-
-    fn is_at_end(&self) -> bool {
-        self.cursor >= self.source.len()
+        // TODO: support utf8 for strings
+        assert!(source.is_ascii(), "source must be ascii");
+        Self { source: source.as_bytes(), cursor: 0 }    
     }
 
     fn peek(&self, offset: usize) -> Option<char> {
@@ -20,7 +24,7 @@ impl<'src> Lexer<'src> {
             return None
         }
 
-        self.source.chars().nth(index)
+        Some(self.source[self.cursor] as char)
     }
 
     fn advance(&mut self) {
@@ -39,45 +43,40 @@ impl Lexer<'_> {
         }
     }
 
-    fn consume_number(&mut self) -> Option<Token> {
-        let is_number = |c: char| {
-            (c >= '0' && c <= '9') || c == '_'
-        };
-        
-        let mut decimal = false;
-        let mut number = String::new();
+    fn consume_number(&mut self) -> Token {
+        let start = self.cursor;
+        let mut decimal_seen = false;
+
         while let Some(char) = self.peek(0) {
-            if is_number(char) {
-                if char != '_' {
-                    number.push(char);
-                }
+            if char.is_digit(10) || char == '_' {
                 self.advance();
             } else if char == '.' {
-                if decimal {
-                    todo!("number parsing does not fail when there are multiple decimal points");
+                if decimal_seen {
+                    return Token::Error(LexerError::MultipleDecimalPoints)
                 }
-
-                decimal = true;
-                number.push('.');
+                
+                decimal_seen = true;
                 self.advance();
             } else {
-                // TODO: handle error for invalid number
-                return None;
+                break;
             }
         }
 
-        // TODO: handle error when number is incomplete (e.g. `1.` or `.1`)
-        Some(Token::Number(number))
+        let slice = &self.source[start..self.cursor];
+        let number = String::from_utf8_lossy(slice)
+            .replace("_", "");
+
+        Token::Number(number)
     }
 
-    fn consume_symbol(&mut self) -> Option<Token> {
+    fn consume_symbol(&mut self) -> Token {
         match self.peek(0) {
-            Some('+') => { self.advance(); Some(Token::PLUS) },
-            Some('-') => { self.advance(); Some(Token::MINUS) },
-            Some('*') => { self.advance(); Some(Token::STAR) },
-            Some('/') => { self.advance(); Some(Token::SLASH) },
+            Some('+') => { self.advance(); Token::PLUS },
+            Some('-') => { self.advance(); Token::MINUS },
+            Some('*') => { self.advance(); Token::STAR },
+            Some('/') => { self.advance(); Token::SLASH },
             
-            _ => None, // TODO: handle error for invalid symbol
+            _ => Token::Error(LexerError::InvalidSymbol),
         }
     }
 }
@@ -85,15 +84,6 @@ impl Lexer<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_is_at_end() {
-        let lexer = Lexer::new("");
-        assert!(lexer.is_at_end());
-
-        let lexer = Lexer::new("1");
-        assert!(!lexer.is_at_end());
-    }
 
     #[test]
     fn test_consume_whitespace() {
@@ -106,33 +96,37 @@ mod tests {
     fn test_consume_number() {
         let mut lexer = Lexer::new("123");
         let token = lexer.consume_number();
-        assert_eq!(token, Some(Token::Number("123".to_string())));
+        assert_eq!(token, Token::Number("123".to_string()));
 
         let mut lexer = Lexer::new("1.23");
         let token = lexer.consume_number();
-        assert_eq!(token, Some(Token::Number("1.23".to_string())));
+        assert_eq!(token, Token::Number("1.23".to_string()));
 
         let mut lexer = Lexer::new("_1_2_3_");
         let token = lexer.consume_number();
-        assert_eq!(token, Some(Token::Number("123".to_string())));
+        assert_eq!(token, Token::Number("123".to_string()));
     }
 
     #[test]
     fn test_consume_symbol() {
         let mut lexer = Lexer::new("+");
         let token = lexer.consume_symbol();
-        assert_eq!(token, Some(Token::PLUS));
+        assert_eq!(token, Token::PLUS);
 
         let mut lexer = Lexer::new("-");
         let token = lexer.consume_symbol();
-        assert_eq!(token, Some(Token::MINUS));
+        assert_eq!(token, Token::MINUS);
 
         let mut lexer = Lexer::new("*");
         let token = lexer.consume_symbol();
-        assert_eq!(token, Some(Token::STAR));
+        assert_eq!(token, Token::STAR);
 
         let mut lexer = Lexer::new("/");
         let token = lexer.consume_symbol();
-        assert_eq!(token, Some(Token::SLASH));
+        assert_eq!(token, Token::SLASH);
+
+        let mut lexer = Lexer::new("p");
+        let token = lexer.consume_symbol();
+        assert_eq!(token, Token::Error(LexerError::InvalidSymbol));
     }
 }

@@ -5,5 +5,5 @@ mod lexer;
 
 pub use crate::{
     token::{Token},
-    lexer::{Lexer}
+    lexer::{Lexer, LexerError},
 };
