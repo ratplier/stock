@@ -99,6 +99,9 @@ impl Lexer<'_> {
             Some('-') => { self.advance(); Some(Token::MINUS) },
             Some('*') => { self.advance(); Some(Token::STAR) },
             Some('/') => { self.advance(); Some(Token::SLASH) },
+            Some('(') => { self.advance(); Some(Token::LPAREN) },
+            Some(')') => { self.advance(); Some(Token::RPAREN) },
+
             _ => None,
         }
     }
@@ -118,18 +121,20 @@ mod tests {
 
     #[test]
     fn test_parsing() {
-        let lexer = Lexer::new("1 + 2 - 3 * 4 / 5");
+        let lexer = Lexer::new("1 + (2 - 3) * 4 / 5");
         let tokens = lexer.collect::<Vec<Token>>();
         let expected = vec![
             Token::Number("1".to_string()),
             Token::PLUS,
+            Token::LPAREN,
             Token::Number("2".to_string()),
             Token::MINUS,
             Token::Number("3".to_string()),
+            Token::RPAREN,
             Token::STAR,
             Token::Number("4".to_string()),
             Token::SLASH,
-            Token::Number("5".to_string()), 
+            Token::Number("5".to_string()),
         ];
 
         assert_eq!(tokens, expected);
