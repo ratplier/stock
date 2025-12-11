@@ -32,6 +32,16 @@ impl<'src> Lexer<'src> {
     fn advance(&mut self) {
         self.cursor += 1;
     }
+    
+    fn next_token(&mut self) -> Option<Token> {
+        self.consume_whitespace();
+
+        let char = self.peek(0)?;
+        match char {
+            '0'..='9' => Some(self.consume_number()),
+            _ => self.consume_symbol(),
+        }
+    }
 }
 
 impl Lexer<'_> {
@@ -83,21 +93,47 @@ impl Lexer<'_> {
         Token::Number(number)
     }
 
-    fn consume_symbol(&mut self) -> Token {
+    fn consume_symbol(&mut self) -> Option<Token> {
         match self.peek(0) {
-            Some('+') => { self.advance(); Token::PLUS },
-            Some('-') => { self.advance(); Token::MINUS },
-            Some('*') => { self.advance(); Token::STAR },
-            Some('/') => { self.advance(); Token::SLASH },
-            
-            _ => Token::Error(LexerError::InvalidSymbol),
+            Some('+') => { self.advance(); Some(Token::PLUS) },
+            Some('-') => { self.advance(); Some(Token::MINUS) },
+            Some('*') => { self.advance(); Some(Token::STAR) },
+            Some('/') => { self.advance(); Some(Token::SLASH) },
+            _ => None,
         }
+    }
+}
+
+impl Iterator for Lexer<'_> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_token()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parsing() {
+        let lexer = Lexer::new("1 + 2 - 3 * 4 / 5");
+        let tokens = lexer.collect::<Vec<Token>>();
+        let expected = vec![
+            Token::Number("1".to_string()),
+            Token::PLUS,
+            Token::Number("2".to_string()),
+            Token::MINUS,
+            Token::Number("3".to_string()),
+            Token::STAR,
+            Token::Number("4".to_string()),
+            Token::SLASH,
+            Token::Number("5".to_string()), 
+        ];
+
+        assert_eq!(tokens, expected);
+    }
 
     #[test]
     fn test_consume_whitespace() {
@@ -108,39 +144,52 @@ mod tests {
 
     #[test]
     fn test_consume_number() {
+        // integer
         let mut lexer = Lexer::new("123");
         let token = lexer.consume_number();
         assert_eq!(token, Token::Number("123".to_string()));
 
+        // decimal
         let mut lexer = Lexer::new("1.23");
         let token = lexer.consume_number();
         assert_eq!(token, Token::Number("1.23".to_string()));
 
-        let mut lexer = Lexer::new("_1_2_3_");
+        // underscore
+        let mut lexer = Lexer::new("_1_2_3");
         let token = lexer.consume_number();
         assert_eq!(token, Token::Number("123".to_string()));
+
+        // trailing underscore
+        let mut lexer = Lexer::new("1_");
+        let token = lexer.consume_number();
+        assert_eq!(token, Token::Error(LexerError::TrailingUnderscore));  
+
+        // trailing decimal
+        let mut lexer = Lexer::new("1.");
+        let token = lexer.consume_number();
+        assert_eq!(token, Token::Error(LexerError::TrailingDecimal));
     }
 
     #[test]
     fn test_consume_symbol() {
         let mut lexer = Lexer::new("+");
         let token = lexer.consume_symbol();
-        assert_eq!(token, Token::PLUS);
+        assert_eq!(token, Some(Token::PLUS));
 
         let mut lexer = Lexer::new("-");
         let token = lexer.consume_symbol();
-        assert_eq!(token, Token::MINUS);
+        assert_eq!(token, Some(Token::MINUS));
 
         let mut lexer = Lexer::new("*");
         let token = lexer.consume_symbol();
-        assert_eq!(token, Token::STAR);
+        assert_eq!(token, Some(Token::STAR));
 
         let mut lexer = Lexer::new("/");
         let token = lexer.consume_symbol();
-        assert_eq!(token, Token::SLASH);
+        assert_eq!(token, Some(Token::SLASH));
 
         let mut lexer = Lexer::new("p");
         let token = lexer.consume_symbol();
-        assert_eq!(token, Token::Error(LexerError::InvalidSymbol));
+        assert_eq!(token, None);
     }
 }
