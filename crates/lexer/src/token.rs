@@ -1,6 +1,6 @@
 use crate::{LexerError};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Number(String),
 

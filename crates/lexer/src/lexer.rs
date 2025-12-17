@@ -1,6 +1,6 @@
 use crate::Token;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub enum LexerError {
     MultipleDecimalPoints,
     TrailingUnderscore,
