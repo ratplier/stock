@@ -10,3 +10,4 @@ repository = "https://github.com/ratplier/stock"
 
 [workspace.dependencies]
 stock_lexer = { path = "crates/stock_lexer" }
+stock_source = { path = "crates/stock_source" }
