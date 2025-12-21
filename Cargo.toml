@@ -9,5 +9,5 @@ readme = "README.md"
 repository = "https://github.com/ratplier/stock"
 
 [workspace.dependencies]
-stock_lexer = { path = "crates/stock_lexer" }
-stock_source = { path = "crates/stock_source" }
+stock_lexer = { path = "crates/lexer" }
+stock_source = { path = "crates/source" }
