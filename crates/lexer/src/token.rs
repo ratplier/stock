@@ -7,7 +7,7 @@ pub enum LexerError {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum TokenType {
+pub enum TokenKind {
     Number,
 
     Plus, Minus, Star, Slash,
@@ -19,20 +19,20 @@ pub enum TokenType {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Token {
-    pub kind: TokenType,
+    pub kind: TokenKind,
     pub span: Span,
 }
 
 impl Token {
-    pub fn new(kind: TokenType, span: Span) -> Self {
+    pub fn new(kind: TokenKind, span: Span) -> Self {
         Self { kind, span }
     }
 
     pub fn error(err: LexerError, span: Span) -> Self {
-        Self { kind: TokenType::Error(err), span }
+        Self { kind: TokenKind::Error(err), span }
     }
 
-    pub fn is(&self, kind: TokenType) -> bool {
+    pub fn is(&self, kind: TokenKind) -> bool {
         self.kind == kind
     }
 }

@@ -2,6 +2,6 @@ mod token;
 mod lexer;
 
 pub use crate::{
-    token::{Token, TokenType, LexerError},
+    token::{Token, TokenKind, LexerError},
     lexer::Lexer,
 };
