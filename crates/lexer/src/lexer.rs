@@ -1,13 +1,13 @@
 use stock_source::Span;
 use crate::token::{Token, TokenType, LexerError};
 
-pub struct Lexer<'src> {
-    source: &'src str,
+pub struct Lexer<'source> {
+    source: &'source str,
     cursor: usize,
 }
 
-impl<'src> Lexer<'src> {
-    pub fn new(source: &'src str) -> Self {
+impl<'source> Lexer<'source> {
+    pub fn new(source: &'source str) -> Self {
         Lexer { source, cursor: 0 }
     }
 
@@ -96,7 +96,7 @@ impl<'src> Lexer<'src> {
     }
 }
 
-impl<'src> Iterator for Lexer<'src> {
+impl<'source> Iterator for Lexer<'source> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
