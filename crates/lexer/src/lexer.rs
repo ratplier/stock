@@ -17,9 +17,6 @@ impl<'src> Lexer<'src> {
     }
 
     fn span(&self, start: usize) -> Span {
-        debug_assert!(start <= u32::MAX as usize, "cursor exceeded u32 limit");
-        debug_assert!(self.cursor <= u32::MAX as usize, "cursor exceeded u32 limit");
-
         Span::new(
             start as u32,
             self.cursor as u32 

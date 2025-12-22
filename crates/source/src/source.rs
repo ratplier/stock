@@ -18,6 +18,8 @@ impl<'source> SourceMap<'source> {
     }
 
     pub fn add(&mut self, name: &'source str, src: &'source str) -> FileId {
+        assert!(src.len() < u32::MAX as usize, "source code must be less than 4 GB large");
+
         let file = SourceFile { name, src };
         self.file.push(file);
 
