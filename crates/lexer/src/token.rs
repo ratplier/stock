@@ -1,10 +1,5 @@
 use stock_source::Span;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum LexerError {
-    UnexpectedCharacter,
-    InvalidNumber,
-}
+use crate::error::LexerError;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {

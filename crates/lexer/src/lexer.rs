@@ -1,5 +1,6 @@
 use stock_source::Span;
-use crate::token::{Token, TokenKind, LexerError};
+use crate::error::LexerError;
+use crate::token::{Token, TokenKind};
 
 pub struct Lexer<'source> {
     source: &'source str,
