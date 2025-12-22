@@ -7,8 +7,12 @@ pub struct Span {
 
 impl Span {
     pub fn new(start: u32, end: u32) -> Self {
-        assert!(start < end, "start must be less than end");
+        assert!(start <= end, "start must be less than or equal to end");
         Span { start, end }
+    }
+
+    pub fn location(position: u32) -> Self {
+        Span::new(position, position)
     }
 
     pub fn char(position: u32) -> Self {

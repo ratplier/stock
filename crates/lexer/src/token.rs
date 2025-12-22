@@ -1,53 +1,38 @@
-use crate::span::Span;
+use stock_source::Span;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum LexerError {
-    UnexpectedSymbol,
     UnexpectedCharacter,
     InvalidNumber,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TokenType {
     Number,
 
-    PLUS, MINUS, STAR, SLASH,
-    LPAREN, RPAREN,
+    Plus, Minus, Star, Slash,
+    LParen, RParen,
 
     EndOfFile,
-    Error(LexerError, Span),
+    Error(LexerError),
 }
 
-impl TokenType {
-    pub fn to_token<'src>(self) -> Token<'src> {
-        Token::new(self)
-    }
-
-    pub fn to_literal<'src>(self, literal: &'src [u8]) -> Token<'src> {
-        Token::literal(self, literal)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Token<'src> {
+#[derive(Debug, PartialEq, Eq)]
+pub struct Token {
     pub kind: TokenType,
-    pub literal: Option<&'src [u8]>,
+    pub span: Span,
 }
 
-impl<'src> Token<'src> {
-    pub fn new(kind: TokenType) -> Self {
-        Self { kind, literal: None }
+impl Token {
+    pub fn new(kind: TokenType, span: Span) -> Self {
+        Self { kind, span }
     }
 
     pub fn error(err: LexerError, span: Span) -> Self {
-        Self { kind: TokenType::Error(err, span), literal: None }
+        Self { kind: TokenType::Error(err), span }
     }
 
-    pub fn literal(kind: TokenType, literal: &'src [u8]) -> Self {
-        Self { kind, literal: Some(literal) }
-    }
-
-    pub fn end_of_file() -> Self {
-        Token::new(TokenType::EndOfFile)
+    pub fn is(&self, kind: TokenType) -> bool {
+        self.kind == kind
     }
 }

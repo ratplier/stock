@@ -1,45 +1,69 @@
-use crate::{Span, token::{LexerError, Token, TokenType}};
+use stock_source::Span;
+use crate::token::{Token, TokenType, LexerError};
 
 pub struct Lexer<'src> {
-    source: &'src [u8],
+    source: &'src str,
     cursor: usize,
 }
 
 impl<'src> Lexer<'src> {
     pub fn new(source: &'src str) -> Self {
-        // TODO: support utf8 for strings
-        assert!(source.is_ascii(), "source must be ascii");
-        Self { source: source.as_bytes(), cursor: 0 }    
+        Lexer { source, cursor: 0 }
     }
 
-    pub fn peek_at(&self, offset: usize) -> Option<&u8> {
-        self.source.get(self.cursor + offset)
+    #[inline]
+    fn peek_at(&self, offset: usize) -> Option<char> {
+        self.source.get(self.cursor..)?.chars().nth(offset)
     }
 
-    pub fn next_token(&mut self) -> Token<'src> {
+    fn span(&self, start: usize) -> Span {
+        debug_assert!(start <= u32::MAX as usize, "cursor exceeded u32 limit");
+        debug_assert!(self.cursor <= u32::MAX as usize, "cursor exceeded u32 limit");
+
+        Span::new(
+            start as u32,
+            self.cursor as u32 
+        )
+    }
+
+    pub fn next_token(&mut self) -> Token {
         self.consume_whitespace();
 
-        match self.peek_at(0) {
-            Some(char) if char.is_ascii_digit() => self.consume_number(),
-            Some(char) if char.is_ascii_punctuation() => self.consume_symbol(),
-            Some(_) => {
-                let span = Span::char(self.cursor);
-                self.consume_character();
-                Token::error(LexerError::UnexpectedCharacter, span)
-            }
+        let start = self.cursor;
+        let char = match self.peek_at(0) {
+            Some(c) => c,
+            None => return Token::new(TokenType::EndOfFile, self.span(start)),
+        };
 
-            None => Token::end_of_file(),
+        match char {
+            char if char.is_ascii_digit() => self.consume_number(),
+
+            '+' => { self.consume_character(); Token::new(TokenType::Plus, self.span(start)) },
+            '-' => { self.consume_character(); Token::new(TokenType::Minus, self.span(start)) },
+            '*' => { self.consume_character(); Token::new(TokenType::Star, self.span(start)) },
+            '/' => { self.consume_character(); Token::new(TokenType::Slash, self.span(start)) },
+            '(' => { self.consume_character(); Token::new(TokenType::LParen, self.span(start)) },
+            ')' => { self.consume_character(); Token::new(TokenType::RParen, self.span(start)) },
+
+            _ => {
+                self.consume_character();
+                Token::error(LexerError::UnexpectedCharacter, self.span(start))
+            },
         }
     }
-
+    
     // consumers
     fn consume_character(&mut self) {
-        self.cursor += 1;
+        let char_length = self.peek_at(0)
+            .map(|c| c.len_utf8())
+            .unwrap_or(0);
+
+        self.cursor += char_length;
     }
 
     fn consume_whitespace(&mut self) {
         while let Some(char) = self.peek_at(0) {
-            if char.is_ascii_whitespace() {
+            if char.is_whitespace() {
                 self.consume_character();
             } else {
                 break;
@@ -47,72 +71,43 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    fn consume_number(&mut self) -> Token<'src> {
+    fn consume_number(&mut self) -> Token {
         let start = self.cursor;
         let mut valid = true;
         let mut has_dot = false;
 
         while let Some(char) = self.peek_at(0) {
-            if char.is_ascii_digit() {
+            if char.is_ascii_digit() || char == '_' {
                 self.consume_character();
-            } else if *char == b'.' {
+            } else if char == '.' {
                 if has_dot {
                     valid = false;
                 }
 
                 has_dot = true;
                 self.consume_character();
-            } else if *char == b'_' {
-                if let Some(next_char) = self.peek_at(1) && *next_char == b'_' {
-                    valid = false;
-                }
             } else {
                 break;
             }
         }
 
-        let slice = &self.source[start..self.cursor];
-        let leading_trailing = |char: u8| {
-            slice.first() == Some(&char) || slice.last() == Some(&char)
-        };
-
-        if valid && !slice.is_empty() && !leading_trailing(b'.') && !leading_trailing(b'_') {
-            TokenType::Number.to_literal(slice)
+        if valid {
+            Token::new(TokenType::Number, self.span(start))
         } else {
-            let span = Span::new(start, self.cursor);
-            TokenType::Error(LexerError::InvalidNumber, span).to_token()
+            Token::error(LexerError::InvalidNumber, self.span(start))
         }
-    }
-
-    fn consume_symbol(&mut self) -> Token<'src> {
-        let symbol = self.peek_at(0).unwrap_or(&b'\0');
-        let token = match symbol {
-            b'+' => TokenType::PLUS.to_token(),
-            b'-' => TokenType::MINUS.to_token(),
-            b'*' => TokenType::STAR.to_token(),
-            b'/' => TokenType::SLASH.to_token(),
-
-            b'(' => TokenType::LPAREN.to_token(),
-            b')' => TokenType::RPAREN.to_token(),
-
-            _ => {
-                let span = Span::char(self.cursor);
-                Token::error(LexerError::UnexpectedSymbol, span)
-            }
-        };
-        
-        self.consume_character();
-        token
     }
 }
 
 impl<'src> Iterator for Lexer<'src> {
-    type Item = Token<'src>;
+    type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.next_token() {
-            token if token.kind == TokenType::EndOfFile => None,
-            token => Some(token)
+        let token = self.next_token();
+        if token.kind == TokenType::EndOfFile {
+            None
+        } else {
+            Some(token)
         }
     }
 }
@@ -121,94 +116,52 @@ impl<'src> Iterator for Lexer<'src> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_lexing() {
-        let lexer = Lexer::new("1 + (2 - 3) * 4 / 5");
-        let tokens: Vec<Token> = lexer.collect();
-
-        let expected = vec![
-            TokenType::Number.to_literal(b"1"),
-            TokenType::PLUS.to_token(),
-            TokenType::LPAREN.to_token(),
-            TokenType::Number.to_literal(b"2"),
-            TokenType::MINUS.to_token(),
-            TokenType::Number.to_literal(b"3"),
-            TokenType::RPAREN.to_token(),
-            TokenType::STAR.to_token(),
-            TokenType::Number.to_literal(b"4"),
-            TokenType::SLASH.to_token(),
-            TokenType::Number.to_literal(b"5")
-        ];
+    fn assert_tokens(src: &str, expected: Vec<TokenType>) {
+        let lexer = Lexer::new( src);
+        let tokens: Vec<TokenType> = lexer.map(|t| t.kind).collect();
 
         assert_eq!(tokens, expected);
     }
 
     #[test]
-    fn test_consume_whitespace() {
-        let mut lexer = Lexer::new("   1");
-        lexer.consume_whitespace();
-
-        assert_eq!(lexer.peek_at(0), Some(&b'1'));
+    fn test_utf8_char() {
+        assert_tokens("α + β", vec![
+            TokenType::Error(LexerError::UnexpectedCharacter),
+            TokenType::Plus,
+            TokenType::Error(LexerError::UnexpectedCharacter),
+        ]);
     }
 
     #[test]
-    fn test_consume_number_integer() {
-        let mut lexer = Lexer::new("123");
-        let token = lexer.consume_number();
-
-        assert_eq!(token.kind, TokenType::Number);
+    fn test_basic_math() {
+        assert_tokens("1 + 2", vec![
+            TokenType::Number, 
+            TokenType::Plus, 
+            TokenType::Number
+        ]);
     }
 
     #[test]
-    fn test_consume_number_decimal() {
+    fn test_decimals() {
         let mut lexer = Lexer::new("1.23");
-        let token = lexer.consume_number();
-
+        let token = lexer.next().unwrap();
+        
+        let (start, end) = (token.span.start as usize, token.span.end as usize);
         assert_eq!(token.kind, TokenType::Number);
+        assert_eq!(&lexer.source[start..end], "1.23");
     }
 
     #[test]
-    fn test_consume_number_error() {
+    fn test_number_underscores() {
+        assert_tokens("1_000", vec![TokenType::Number]);
+        assert_tokens("1_000.50", vec![TokenType::Number]);
+    }
+
+    #[test]
+    fn test_number_invalid() {
+        // 1.2.3 is invalid
         let mut lexer = Lexer::new("1.2.3");
-        let token = lexer.consume_number();
-
-        assert_eq!(token.kind, TokenType::Error(
-            LexerError::InvalidNumber, Span::new(0, 5)
-        ));
-    }
-
-    #[test]
-    fn test_consume_symbol_plus() {
-        let mut lexer = Lexer::new("+");
-        let token = lexer.consume_symbol();
-
-        assert_eq!(token.kind, TokenType::PLUS);
-    }
-
-    #[test]
-    fn test_consume_symbol_invalid() {
-        let mut lexer = Lexer::new("~");
-        let token = lexer.consume_symbol();
-
-        assert_eq!(token.kind, TokenType::Error(
-            LexerError::UnexpectedSymbol, Span::char(0)
-        ));
-    }
-
-    #[test]
-    fn test_next_token_eof() {
-        let mut lexer = Lexer::new("");
-        let token = lexer.next_token();
-
-        assert_eq!(token.kind, TokenType::EndOfFile);
-    }
-
-    #[test]
-    fn test_iterator_stops_at_eof() {
-        let lexer = Lexer::new("1 + 2");
-        let tokens: Vec<Token> = lexer.collect();
-
-        assert_eq!(tokens.len(), 3);
-        assert_ne!(tokens.last().map(|t| &t.kind), Some(&TokenType::EndOfFile))
+        let t = lexer.next_token();
+        assert_eq!(t.kind, TokenType::Error(LexerError::InvalidNumber));
     }
 }
