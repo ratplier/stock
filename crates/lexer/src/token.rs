@@ -12,7 +12,7 @@ pub enum TokenKind {
     Error(LexerError),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
