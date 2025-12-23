@@ -19,6 +19,10 @@ impl Span {
         Span::new( position, position + 1)
     }
 
+    pub fn read<'src>(&self, source: &'src str) -> &'src str {
+        &source[self.start as usize..self.end as usize]
+    }
+
     pub fn len(&self) -> u32 {
         self.end - self.start
     }
