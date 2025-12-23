@@ -173,4 +173,24 @@ mod tests {
         let t = lexer.next_token();
         assert_eq!(t.kind, TokenKind::Error(LexerError::InvalidNumber));
     }
+
+    #[test]
+    fn test_interning() {
+        use stock_span::Interner;
+        use crate::intern::intern;
+
+        let lexer = Lexer::new("123 456");
+        let source = &lexer.source().to_owned();
+
+        let mut tokens: Vec<Token> = lexer.collect();
+        let mut interner = Interner::new();
+        intern(&mut interner, source, &mut tokens);
+
+        let symbols: Vec<_> = tokens.iter().map(|v| {
+            v.symbol.unwrap()
+        }).collect();
+
+        assert_eq!(interner.lookup(symbols[0]), "123");
+        assert_eq!(interner.lookup(symbols[1]), "456");
+    }
 }
