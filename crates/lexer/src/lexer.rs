@@ -14,6 +14,10 @@ impl<'source> Lexer<'source> {
         Lexer { source, cursor: 0, eof_emitted: false }
     }
 
+    pub fn source(&self) -> &str {
+        self.source
+    }
+
     #[inline]
     fn peek_at(&self, offset: usize) -> Option<char> {
         self.source.get(self.cursor..)?.chars().nth(offset)
@@ -120,10 +124,10 @@ mod tests {
     use super::*;
 
     fn assert_tokens(src: &str, expected: Vec<TokenKind>) {
-        let tokens = Lexer::new(src)
+        let tokens: Vec<TokenKind> = Lexer::new(src)
             .map(|t| t.kind)
             .take_while(|&t| t != TokenKind::EndOfFile)
-            .collect::<Vec<TokenKind>>();
+            .collect();
 
         assert_eq!(tokens, expected);
     }
