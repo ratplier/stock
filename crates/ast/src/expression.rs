@@ -1,5 +1,5 @@
 use crate::operators::{BinaryOp, UnaryOp};
-use stock_source::{Span, Symbol};
+use stock_span::{Span, Symbol};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ExprId(pub u32);

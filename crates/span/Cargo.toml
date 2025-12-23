@@ -1,5 +1,5 @@
 [package]
-name = "stock_source"
+name = "stock_span"
 version = "0.1.0"
 
 edition.workspace = true

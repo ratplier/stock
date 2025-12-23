@@ -6,14 +6,14 @@ version = 4
 name = "stock_ast"
 version = "0.1.0"
 dependencies = [
- "stock_source",
+ "stock_span",
 ]
 
 [[package]]
 name = "stock_lexer"
 version = "0.1.0"
 dependencies = [
- "stock_source",
+ "stock_span",
 ]
 
 [[package]]
@@ -21,5 +21,5 @@ name = "stock_parser"
 version = "0.1.0"
 
 [[package]]
-name = "stock_source"
+name = "stock_span"
 version = "0.1.0"

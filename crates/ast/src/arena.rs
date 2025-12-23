@@ -1,6 +1,6 @@
 use crate::operators::{BinaryOp, UnaryOp};
 use crate::expression::{Expr, ExprId, ExprKind, LiteralKind};
-use stock_source::{Span, Symbol};
+use stock_span::{Span, Symbol};
 
 #[derive(Debug)]
 pub struct Ast {

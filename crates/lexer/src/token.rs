@@ -1,4 +1,4 @@
-use stock_source::Span;
+use stock_span::Span;
 use crate::error::LexerError;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
