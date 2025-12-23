@@ -1,36 +1,19 @@
-use stock_span::Span;
+use stock_span::{Span, Interner};
 use crate::error::LexerError;
 use crate::token::{Token, TokenKind};
 
-pub struct Lexer<'source> {
+pub struct Lexer<'source, 'interner> {
     source: &'source str,
     cursor: usize,
-
-    eof_emitted: bool,
+    interner: &'interner mut Interner,
 }
 
-impl<'source> Lexer<'source> {
-    pub fn new(source: &'source str) -> Self {
-        Lexer { source, cursor: 0, eof_emitted: false }
+impl<'source, 'interner> Lexer<'source, 'interner> {
+    pub fn new(source: &'source str, interner: &'interner mut Interner) -> Self {
+        Lexer { source, cursor: 0, interner }
     }
 
-    pub fn source(&self) -> &str {
-        self.source
-    }
-
-    #[inline]
-    fn peek_at(&self, offset: usize) -> Option<char> {
-        self.source.get(self.cursor..)?.chars().nth(offset)
-    }
-
-    fn span(&self, start: usize) -> Span {
-        Span::new(
-            start as u32,
-            self.cursor as u32 
-        )
-    }
-
-    fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.consume_whitespace();
 
         let start = self.cursor;
@@ -54,6 +37,37 @@ impl<'source> Lexer<'source> {
                 Token::error(LexerError::UnexpectedCharacter, self.span(start))
             },
         }
+    }
+
+    pub fn tokenize(mut self) -> Vec<Token> {
+        let mut tokens = Vec::new();
+        let mut reached_end = false;
+
+        loop {
+            let token = self.next_token();
+
+            if token.kind == TokenKind::EndOfFile {
+                reached_end = true;
+            }
+            if reached_end {
+                break;
+            }
+
+            tokens.push(token);
+        }
+
+        tokens
+    }
+
+    fn peek_at(&self, offset: usize) -> Option<char> {
+        self.source.get(self.cursor..)?.chars().nth(offset)
+    }
+
+    fn span(&self, start: usize) -> Span {
+        Span::new(
+            start as u32,
+            self.cursor as u32 
+        )
     }
 
     // consumers
@@ -95,27 +109,15 @@ impl<'source> Lexer<'source> {
             }
         }
 
+        let span = self.span(start);
         if valid {
-            Token::new(TokenKind::Number, self.span(start))
+            let raw = span.read(self.source);
+            let symbol = self.interner.intern(raw);
+
+            Token::symbol(TokenKind::Number, span, symbol)
         } else {
-            Token::error(LexerError::InvalidNumber, self.span(start))
+            Token::error(LexerError::InvalidNumber, span)
         }
-    }
-}
-
-impl<'source> Iterator for Lexer<'source> {
-    type Item = Token;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let token = self.next_token();
-
-        if self.eof_emitted && token.kind == TokenKind::EndOfFile {
-            return None;
-        } else if token.kind == TokenKind::EndOfFile {
-            self.eof_emitted = true;
-        }
-
-        Some(token)
     }
 }
 
@@ -123,10 +125,16 @@ impl<'source> Iterator for Lexer<'source> {
 mod tests {
     use super::*;
 
+    fn get_tokens(src: &str) -> Vec<Token> {
+        let mut interner = Interner::new();
+        Lexer::new(src, &mut interner).tokenize()
+    }   
+
     fn assert_tokens(src: &str, expected: Vec<TokenKind>) {
-        let tokens: Vec<TokenKind> = Lexer::new(src)
+        let tokens: Vec<TokenKind> = get_tokens(src)
+            .into_iter()
             .map(|t| t.kind)
-            .take_while(|&t| t != TokenKind::EndOfFile)
+            .take_while(|&k| k != TokenKind::EndOfFile)
             .collect();
 
         assert_eq!(tokens, expected);
@@ -152,12 +160,12 @@ mod tests {
 
     #[test]
     fn test_decimals() {
-        let mut lexer = Lexer::new("1.23");
-        let token = lexer.next().unwrap();
+        let source = "1.23 + 4.56";
+        let token = &get_tokens(source)[2];
         
         let (start, end) = (token.span.start as usize, token.span.end as usize);
         assert_eq!(token.kind, TokenKind::Number);
-        assert_eq!(&lexer.source[start..end], "1.23");
+        assert_eq!(&source[start..end], "4.56");
     }
 
     #[test]
@@ -169,26 +177,23 @@ mod tests {
     #[test]
     fn test_number_invalid() {
         // 1.2.3 is invalid
-        let mut lexer = Lexer::new("1.2.3");
-        let t = lexer.next_token();
-        assert_eq!(t.kind, TokenKind::Error(LexerError::InvalidNumber));
+        let token = &get_tokens("1.2.3")[0];
+
+        assert_eq!(token.kind, TokenKind::Error(LexerError::InvalidNumber));
     }
 
     #[test]
     fn test_interning() {
         use stock_span::Interner;
-        use crate::intern::intern;
 
-        let lexer = Lexer::new("123 456");
-        let source = &lexer.source().to_owned();
-
-        let mut tokens: Vec<Token> = lexer.collect();
+        let source = "123 456";
         let mut interner = Interner::new();
-        intern(&mut interner, source, &mut tokens);
+        let tokens = Lexer::new(source, &mut interner)
+            .tokenize();
 
-        let symbols: Vec<_> = tokens.iter().map(|v| {
-            v.symbol.unwrap()
-        }).collect();
+        let symbols: Vec<_> = tokens.iter()
+            .map(|t| t.symbol.unwrap())
+            .collect();
 
         assert_eq!(interner.lookup(symbols[0]), "123");
         assert_eq!(interner.lookup(symbols[1]), "456");
