@@ -5,11 +5,13 @@ use crate::token::{Token, TokenKind};
 pub struct Lexer<'source> {
     source: &'source str,
     cursor: usize,
+
+    eof_emitted: bool,
 }
 
 impl<'source> Lexer<'source> {
     pub fn new(source: &'source str) -> Self {
-        Lexer { source, cursor: 0 }
+        Lexer { source, cursor: 0, eof_emitted: false }
     }
 
     #[inline]
@@ -24,7 +26,7 @@ impl<'source> Lexer<'source> {
         )
     }
 
-    pub fn next_token(&mut self) -> Token {
+    fn next_token(&mut self) -> Token {
         self.consume_whitespace();
 
         let start = self.cursor;
@@ -49,7 +51,7 @@ impl<'source> Lexer<'source> {
             },
         }
     }
-    
+
     // consumers
     fn consume_character(&mut self) {
         let char_length = self.peek_at(0)
@@ -102,11 +104,14 @@ impl<'source> Iterator for Lexer<'source> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let token = self.next_token();
-        if token.kind == TokenKind::EndOfFile {
-            None
-        } else {
-            Some(token)
+
+        if self.eof_emitted && token.kind == TokenKind::EndOfFile {
+            return None;
+        } else if token.kind == TokenKind::EndOfFile {
+            self.eof_emitted = true;
         }
+
+        Some(token)
     }
 }
 
@@ -115,8 +120,10 @@ mod tests {
     use super::*;
 
     fn assert_tokens(src: &str, expected: Vec<TokenKind>) {
-        let lexer = Lexer::new( src);
-        let tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();
+        let tokens = Lexer::new(src)
+            .map(|t| t.kind)
+            .take_while(|&t| t != TokenKind::EndOfFile)
+            .collect::<Vec<TokenKind>>();
 
         assert_eq!(tokens, expected);
     }
