@@ -1,7 +1,7 @@
 mod span;
-mod interner;
+mod symbol;
 
 pub use crate::{
     span::Span,
-    interner::{Symbol, Interner}
+    symbol::{Symbol, Interner}
 };
