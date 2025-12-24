@@ -1,25 +1,28 @@
 use stock_ast::{Ast, ExprId, LiteralKind, BinaryOp, UnaryOp};
 use stock_lexer::{Token, TokenKind, LexerError};
-use stock_span::{Span, Symbol};
+use stock_span::{Span, Interner, Symbol};
 use crate::error::{ParserError, ParserErrorKind};
 
-pub struct Parser {
+pub struct Parser<'interner> {
     tokens: Vec<Token>,
     cursor: usize,
 
     ast: Ast,
     errors: Vec<ParserError>,
+    interner: &'interner Interner,
 }
 
-impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+impl<'interner> Parser<'interner> {
+    pub fn new(tokens: Vec<Token>, interner: &'interner Interner) -> Self {
         assert!(!tokens.is_empty(), "parser must have at least one token");
 
         Parser {
             tokens,
             cursor: 0,
+
             ast: Ast::new(),
             errors: Vec::new(),
+            interner,
         }
     }
 
@@ -31,7 +34,7 @@ impl Parser {
     }
 }
 
-impl Parser {
+impl Parser<'_> {
     fn error(&mut self, error: ParserErrorKind) {
         let span = self.peek(0).span;
         let error = ParserError::new(error, span);
@@ -72,7 +75,7 @@ impl Parser {
     }
 }
 
-impl Parser {
+impl Parser<'_> {
     fn parse_expression(&mut self, min_binding_power: u8) -> Result<ExprId, ()> {
         let mut lhs = self.parse_prefix()?;
 
@@ -114,9 +117,14 @@ impl Parser {
             TokenKind::Number => {
                 let span = token.span;
                 let symbol = self.get_symbol(token);
+                
+                let literal_kind = if self.interner.lookup(symbol).find('.') == None {
+                    LiteralKind::Integer
+                } else {
+                    LiteralKind::Float
+                };
 
-                // TODO: convert to appropriate literal kind
-                Ok(self.ast.literal(LiteralKind::Integer, symbol, span))
+                Ok(self.ast.literal(literal_kind, symbol, span))
             },
 
             TokenKind::LParen => {
@@ -153,7 +161,7 @@ impl Parser {
     }
 }
 
-impl Parser {
+impl Parser<'_> {
     // unaries bind tighter than infixes
     fn prefix_binding_power(&self, kind: TokenKind) -> ((), u8) {
         match kind {
@@ -224,7 +232,7 @@ mod tests {
         let mut interner = Interner::new();
         let tokens = Lexer::lex(source, &mut interner);
 
-        let mut parser = Parser::new(tokens);
+        let mut parser = Parser::new(tokens, &interner);
         let expr_id = parser.parse_expression(0);
 
         if let Ok(expr_id) = expr_id {
