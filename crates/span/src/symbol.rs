@@ -3,6 +3,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Symbol(pub u32);
 
+#[derive(Debug, Default)]
 pub struct Interner {
     store: Vec<String>,
     map: HashMap<String, Symbol>,
@@ -10,10 +11,7 @@ pub struct Interner {
 
 impl Interner {
     pub fn new() -> Self {
-        Interner {
-            store: Vec::new(),
-            map: HashMap::new(),
-        }
+        Interner::default()
     }
 
     pub fn intern(&mut self, name: &str) -> Symbol {
