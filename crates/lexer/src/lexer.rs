@@ -1,6 +1,6 @@
-use stock_span::{Span, Interner};
 use crate::error::LexerError;
 use crate::token::{Token, TokenKind};
+use stock_span::{Interner, Span};
 
 pub struct Lexer<'source, 'interner> {
     source: &'source str,
@@ -10,7 +10,11 @@ pub struct Lexer<'source, 'interner> {
 
 impl<'source, 'interner> Lexer<'source, 'interner> {
     pub fn new(source: &'source str, interner: &'interner mut Interner) -> Self {
-        Lexer { source, cursor: 0, interner }
+        Lexer {
+            source,
+            cursor: 0,
+            interner,
+        }
     }
 
     pub fn lex(source: &str, interner: &mut Interner) -> Vec<Token> {
@@ -26,20 +30,25 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
             None => return Token::new(TokenKind::EndOfFile, self.span(start)),
         };
 
+        let mut create_token = |kind: TokenKind| {
+            self.consume_character();
+            Token::new(kind, self.span(start))
+        };
+
         match char {
             char if char.is_ascii_digit() => self.consume_number(),
 
-            '+' => { self.consume_character(); Token::new(TokenKind::Plus, self.span(start)) },
-            '-' => { self.consume_character(); Token::new(TokenKind::Minus, self.span(start)) },
-            '*' => { self.consume_character(); Token::new(TokenKind::Star, self.span(start)) },
-            '/' => { self.consume_character(); Token::new(TokenKind::Slash, self.span(start)) },
-            '(' => { self.consume_character(); Token::new(TokenKind::LParen, self.span(start)) },
-            ')' => { self.consume_character(); Token::new(TokenKind::RParen, self.span(start)) },
+            '+' => create_token(TokenKind::Plus),
+            '-' => create_token(TokenKind::Minus),
+            '*' => create_token(TokenKind::Star),
+            '/' => create_token(TokenKind::Slash),
+            '(' => create_token(TokenKind::LParen),
+            ')' => create_token(TokenKind::RParen),
 
             _ => {
                 self.consume_character();
                 Token::error(LexerError::UnexpectedCharacter, self.span(start))
-            },
+            }
         }
     }
 
@@ -49,7 +58,7 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
         loop {
             let token = self.next_token();
             let is_eof = token.kind == TokenKind::EndOfFile;
-            
+
             tokens.push(token);
 
             if is_eof {
@@ -65,17 +74,12 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
     }
 
     fn span(&self, start: usize) -> Span {
-        Span::new(
-            start as u32,
-            self.cursor as u32 
-        )
+        Span::new(start as u32, self.cursor as u32)
     }
 
     // consumers
     fn consume_character(&mut self) {
-        let char_length = self.peek_at(0)
-            .map(|c| c.len_utf8())
-            .unwrap_or(0);
+        let char_length = self.peek_at(0).map(|c| c.len_utf8()).unwrap_or(0);
 
         self.cursor += char_length;
     }
@@ -129,7 +133,7 @@ mod tests {
     fn get_tokens(src: &str) -> Vec<Token> {
         let mut interner = Interner::new();
         Lexer::new(src, &mut interner).tokenize()
-    }   
+    }
 
     fn assert_tokens(src: &str, expected: Vec<TokenKind>) {
         let tokens: Vec<TokenKind> = get_tokens(src)
@@ -143,27 +147,29 @@ mod tests {
 
     #[test]
     fn test_utf8_char() {
-        assert_tokens("α + β", vec![
-            TokenKind::Error(LexerError::UnexpectedCharacter),
-            TokenKind::Plus,
-            TokenKind::Error(LexerError::UnexpectedCharacter),
-        ]);
+        assert_tokens(
+            "α + β",
+            vec![
+                TokenKind::Error(LexerError::UnexpectedCharacter),
+                TokenKind::Plus,
+                TokenKind::Error(LexerError::UnexpectedCharacter),
+            ],
+        );
     }
 
     #[test]
     fn test_basic_math() {
-        assert_tokens("1 + 2", vec![
-            TokenKind::Number, 
-            TokenKind::Plus, 
-            TokenKind::Number
-        ]);
+        assert_tokens(
+            "1 + 2",
+            vec![TokenKind::Number, TokenKind::Plus, TokenKind::Number],
+        );
     }
 
     #[test]
     fn test_decimals() {
         let source = "1.23 + 4.56";
         let token = &get_tokens(source)[2];
-        
+
         let (start, end) = (token.span.start as usize, token.span.end as usize);
         assert_eq!(token.kind, TokenKind::Number);
         assert_eq!(&source[start..end], "4.56");
@@ -189,12 +195,9 @@ mod tests {
 
         let source = "123 456";
         let mut interner = Interner::new();
-        let tokens = Lexer::new(source, &mut interner)
-            .tokenize();
+        let tokens = Lexer::new(source, &mut interner).tokenize();
 
-        let symbols: Vec<_> = tokens.iter()
-            .map(|t| t.symbol.unwrap())
-            .collect();
+        let symbols: Vec<_> = tokens.iter().map(|t| t.symbol.unwrap()).collect();
 
         assert_eq!(interner.lookup(symbols[0]), "123");
         assert_eq!(interner.lookup(symbols[1]), "456");

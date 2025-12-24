@@ -1,5 +1,5 @@
-use crate::operators::{BinaryOp, UnaryOp};
 use crate::expression::{Expr, ExprId, ExprKind, LiteralKind};
+use crate::operators::{BinaryOp, UnaryOp};
 use stock_span::{Span, Symbol};
 
 #[derive(Debug)]
@@ -9,7 +9,9 @@ pub struct Ast {
 
 impl Ast {
     pub fn new() -> Self {
-        Ast { expressions: Vec::new() }
+        Ast {
+            expressions: Vec::new(),
+        }
     }
 
     pub fn add_expr(&mut self, kind: ExprKind, span: Span) -> ExprId {

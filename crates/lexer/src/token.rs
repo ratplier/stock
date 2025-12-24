@@ -1,12 +1,16 @@
-use stock_span::{Span, Symbol};
 use crate::error::LexerError;
+use stock_span::{Span, Symbol};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenKind {
     Number,
 
-    Plus, Minus, Star, Slash,
-    LParen, RParen,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    LParen,
+    RParen,
 
     EndOfFile,
     Error(LexerError),
@@ -21,11 +25,19 @@ pub struct Token {
 
 impl Token {
     pub fn new(kind: TokenKind, span: Span) -> Self {
-        Self { kind, span, symbol: None }
+        Self {
+            kind,
+            span,
+            symbol: None,
+        }
     }
 
     pub fn symbol(kind: TokenKind, span: Span, symbol: Symbol) -> Self {
-        Self { kind, span, symbol: Some(symbol) }
+        Self {
+            kind,
+            span,
+            symbol: Some(symbol),
+        }
     }
 
     pub fn error(err: LexerError, span: Span) -> Self {

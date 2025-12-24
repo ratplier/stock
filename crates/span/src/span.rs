@@ -15,7 +15,7 @@ impl Span {
     }
 
     pub fn char(position: u32) -> Self {
-        Span::new( position, position + 1)
+        Span::new(position, position + 1)
     }
 
     pub fn read<'src>(&self, source: &'src str) -> &'src str {

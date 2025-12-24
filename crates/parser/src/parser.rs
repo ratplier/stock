@@ -1,7 +1,7 @@
-use stock_ast::{Ast, ExprId, LiteralKind, BinaryOp, UnaryOp};
-use stock_lexer::{Token, TokenKind, LexerError};
-use stock_span::{Span, Interner, Symbol};
 use crate::error::{ParserError, ParserErrorKind};
+use stock_ast::{Ast, BinaryOp, ExprId, LiteralKind, UnaryOp};
+use stock_lexer::{LexerError, Token, TokenKind};
+use stock_span::{Interner, Span, Symbol};
 
 pub struct Parser<'interner> {
     tokens: Vec<Token>,
@@ -46,7 +46,8 @@ impl Parser<'_> {
     }
 
     fn peek(&self, offset: usize) -> Token {
-        self.tokens.get(self.cursor + offset)
+        self.tokens
+            .get(self.cursor + offset)
             .unwrap_or(self.tokens.last().unwrap())
             .clone()
     }
@@ -90,7 +91,6 @@ impl Parser<'_> {
                 None => break,
             };
 
-            
             if l_bp < min_binding_power {
                 break;
             }
@@ -102,7 +102,7 @@ impl Parser<'_> {
 
             let lhs_span = self.ast.get_expr(lhs).span;
             let rhs_span = self.ast.get_expr(rhs).span;
-            let combined_span = Span::new(lhs_span.start,  rhs_span.end);
+            let combined_span = Span::new(lhs_span.start, rhs_span.end);
 
             lhs = self.ast.binary(op, lhs, rhs, combined_span);
         }
@@ -117,7 +117,7 @@ impl Parser<'_> {
             TokenKind::Number => {
                 let span = token.span;
                 let symbol = self.get_symbol(token);
-                
+
                 let literal_kind = if self.interner.lookup(symbol).find('.') == None {
                     LiteralKind::Integer
                 } else {
@@ -125,23 +125,23 @@ impl Parser<'_> {
                 };
 
                 Ok(self.ast.literal(literal_kind, symbol, span))
-            },
+            }
 
             TokenKind::LParen => {
                 let expr = self.parse_expression(0)?;
                 self.consume(TokenKind::RParen, ParserErrorKind::ExpectedRParen)?;
                 Ok(expr)
-            },
+            }
 
             TokenKind::Minus => {
                 let ((), r_bp) = self.prefix_binding_power(TokenKind::Minus);
                 let rhs = self.parse_expression(r_bp)?;
-                
+
                 let rhs_span = self.ast.get_expr(rhs).span;
                 let span = Span::new(token.span.start, rhs_span.end);
-                
+
                 Ok(self.ast.unary(UnaryOp::Negate, rhs, span))
-            },
+            }
 
             TokenKind::Error(lexer_error) => {
                 let kind = match lexer_error {
@@ -151,12 +151,12 @@ impl Parser<'_> {
 
                 self.error(kind);
                 Err(())
-            },
+            }
 
             _ => {
                 self.error(ParserErrorKind::UnexpectedToken);
                 Err(())
-            },
+            }
         }
     }
 }
@@ -195,9 +195,9 @@ impl Parser<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use stock_ast::ExprKind;
     use stock_lexer::Lexer;
-    use stock_span::{Interner};
-    use stock_ast::{ExprKind};
+    use stock_span::Interner;
 
     // small utility to print ast nodes in a readable format
     fn tostring_ast(ast: &Ast, interner: &Interner, expr_id: ExprId) -> String {
@@ -208,20 +208,23 @@ mod tests {
         let expr = ast.get_expr(expr_id);
         let indent = "  ".repeat(depth);
         let next_indent = "  ".repeat(depth + 1);
-        
+
         match expr.kind {
             ExprKind::Literal { kind, value } => {
                 format!("{:?}({:?})", kind, interner.lookup(value))
-            },
+            }
             ExprKind::Binary { op, lhs, rhs } => {
                 let lhs_str = tostring_ast_inner(ast, interner, lhs, depth + 1);
                 let rhs_str = tostring_ast_inner(ast, interner, rhs, depth + 1);
-                format!("{:?} {{\n{}lhs: {},\n{}rhs: {}\n{}}}", op, next_indent, lhs_str, next_indent, rhs_str, indent)
-            },
+                format!(
+                    "{:?} {{\n{}lhs: {},\n{}rhs: {}\n{}}}",
+                    op, next_indent, lhs_str, next_indent, rhs_str, indent
+                )
+            }
             ExprKind::Unary { op, rhs } => {
                 let rhs_str = tostring_ast_inner(ast, interner, rhs, depth + 1);
                 format!("{:?}({})", op, rhs_str)
-            },
+            }
         }
     }
 

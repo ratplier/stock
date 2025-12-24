@@ -3,10 +3,10 @@ use stock_span::Span;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParserErrorKind {
     ExpectedRParen,
-    
+
     UnexpectedToken,
     UnexpectedCharacter,
-    InvalidNumber
+    InvalidNumber,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

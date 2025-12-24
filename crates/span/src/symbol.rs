@@ -10,14 +10,17 @@ pub struct Interner {
 
 impl Interner {
     pub fn new() -> Self {
-        Interner { store: Vec::new(), map: HashMap::new() }
+        Interner {
+            store: Vec::new(),
+            map: HashMap::new(),
+        }
     }
 
     pub fn intern(&mut self, name: &str) -> Symbol {
         if let Some(&id) = self.map.get(name) {
             return id;
         }
-        
+
         let id = Symbol(self.store.len() as u32);
         let owned_string = name.to_string();
 

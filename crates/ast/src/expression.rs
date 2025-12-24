@@ -14,7 +14,7 @@ pub enum LiteralKind {
 pub enum ExprKind {
     Literal {
         kind: LiteralKind,
-        value: Symbol, 
+        value: Symbol,
     },
 
     Binary {

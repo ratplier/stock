@@ -1,9 +1,9 @@
-mod operators;
-mod expression;
 mod arena;
+mod expression;
+mod operators;
 
 pub use crate::{
-    operators::{BinaryOp, UnaryOp},
-    expression::{Expr, ExprId, ExprKind, LiteralKind},
     arena::Ast,
+    expression::{Expr, ExprId, ExprKind, LiteralKind},
+    operators::{BinaryOp, UnaryOp},
 };
