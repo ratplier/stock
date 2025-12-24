@@ -195,9 +195,15 @@ mod tests {
 
         let source = "123 456";
         let mut interner = Interner::new();
-        let tokens = Lexer::new(source, &mut interner).tokenize();
+        let tokens = Lexer::lex(source, &mut interner);
+        println!("{:?}", tokens);
 
-        let symbols: Vec<_> = tokens.iter().map(|t| t.symbol.unwrap()).collect();
+        let symbols: Vec<_> = tokens.iter()
+            .take_while(|t| t.kind != TokenKind::EndOfFile)
+            .map(|t| t.symbol.expect("symbols should be occupied"))
+            .collect();
+
+        println!("{:?}", symbols);
 
         assert_eq!(interner.lookup(symbols[0]), "123");
         assert_eq!(interner.lookup(symbols[1]), "456");
