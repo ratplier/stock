@@ -13,6 +13,10 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
         Lexer { source, cursor: 0, interner }
     }
 
+    pub fn lex(source: &str, interner: &mut Interner) -> Vec<Token> {
+        Lexer::new(source, interner).tokenize()
+    }
+
     pub fn next_token(&mut self) -> Token {
         self.consume_whitespace();
 
@@ -41,19 +45,16 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
 
     pub fn tokenize(mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
-        let mut reached_end = false;
 
         loop {
             let token = self.next_token();
+            let is_eof = token.kind == TokenKind::EndOfFile;
+            
+            tokens.push(token);
 
-            if token.kind == TokenKind::EndOfFile {
-                reached_end = true;
-            }
-            if reached_end {
+            if is_eof {
                 break;
             }
-
-            tokens.push(token);
         }
 
         tokens
