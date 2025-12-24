@@ -9,7 +9,9 @@ pub struct Ast {
 
 impl Ast {
     pub fn new() -> Self {
-        Ast { expressions: Vec::new() }
+        Ast {
+            expressions: Vec::new(),
+        }
     }
 
     pub fn add_expr(&mut self, kind: ExprKind, span: Span) -> ExprId {

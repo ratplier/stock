@@ -46,9 +46,10 @@ impl Parser<'_> {
     }
 
     fn peek(&self, offset: usize) -> Token {
-        *self.tokens
+        self.tokens
             .get(self.cursor + offset)
-            .unwrap_or(self.tokens.last().unwrap())
+            .copied()
+            .unwrap_or(*self.tokens.last().unwrap())
     }
 
     fn peek_kind(&self, offset: usize) -> TokenKind {
@@ -117,10 +118,7 @@ impl Parser<'_> {
                 let span = token.span;
                 let symbol = self.get_symbol(token);
 
-                let decimal_found = self.interner
-                    .lookup(symbol)
-                    .find('.')
-                    .is_some();
+                let decimal_found = self.interner.lookup(symbol).find('.').is_some();
 
                 let literal_kind = if decimal_found {
                     LiteralKind::Float

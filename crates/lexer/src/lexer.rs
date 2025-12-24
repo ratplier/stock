@@ -198,7 +198,8 @@ mod tests {
         let tokens = Lexer::lex(source, &mut interner);
         println!("{:?}", tokens);
 
-        let symbols: Vec<_> = tokens.iter()
+        let symbols: Vec<_> = tokens
+            .iter()
             .take_while(|t| t.kind != TokenKind::EndOfFile)
             .map(|t| t.symbol.expect("symbols should be occupied"))
             .collect();
