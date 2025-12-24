@@ -18,7 +18,7 @@ impl Ast {
     }
 
     pub fn get_expr(&self, id: ExprId) -> &Expr {
-        &self.expressions[id.0 as usize]
+        &self.expressions[(id.0 - 1) as usize]
     }
 }
 

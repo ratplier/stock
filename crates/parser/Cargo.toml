@@ -8,3 +8,6 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
+stock_span = { workspace = true }
+stock_lexer = { workspace = true }
+stock_ast = { workspace = true }

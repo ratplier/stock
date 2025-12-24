@@ -19,6 +19,11 @@ dependencies = [
 [[package]]
 name = "stock_parser"
 version = "0.1.0"
+dependencies = [
+ "stock_ast",
+ "stock_lexer",
+ "stock_span",
+]
 
 [[package]]
 name = "stock_span"
