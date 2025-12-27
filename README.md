@@ -21,17 +21,17 @@ shape debug<T> {
 	fn log(&self, level: log_level)
 }
 
-fn debug::log(&self, level: log_level) {
-	let formatted_data = data.format()
-	let prefix = get_prefix(level)
-	
-	io::println(`{prefix}: {formatted_data}`)
-}
-
 impl debug<player> {
 	fn format(&self) {
 	    `{self.name} [{self.health.to_string()} HP]`
     }
+    
+	fn log(&self, level: log_level) {
+		let formatted_data = data.format()
+		let prefix = get_prefix(level)
+		
+		io::println(`{prefix}: {formatted_data}`)
+	}
 }
 
 fn main() {
