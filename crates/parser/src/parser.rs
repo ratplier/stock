@@ -1,6 +1,6 @@
 use crate::error::{ParserError, ParserErrorKind};
-use stock_ast::{Ast, BinaryOp, ExprId, LiteralKind, UnaryOp};
-use stock_lexer::{LexerError, Token, TokenKind};
+use stock_ast::{Ast, BinaryOp, ExprId, LiteralKind, StmtId, UnaryOp};
+use stock_lexer::{Keyword, LexerError, Token, TokenKind};
 use stock_span::{Interner, Span, Symbol};
 
 pub struct Parser<'interner> {
@@ -26,11 +26,26 @@ impl<'interner> Parser<'interner> {
         }
     }
 
-    pub fn parse(mut self) -> (Ast, Vec<ParserError>) {
-        if !self.is_at_end() {
-            let _ = self.parse_expression(0);
+    pub fn parse(mut self) -> (Ast, Vec<StmtId>, Vec<ParserError>) {
+        let mut roots = Vec::new();
+
+        while !self.is_at_end() {
+            let kind = self.peek_kind(0);
+
+            match kind {
+                TokenKind::Keyword(_) => match self.parse_statement() {
+                    Ok(stmt) => roots.push(stmt),
+                    Err(_) => self.recover(),
+                },
+
+                _ => {
+                    self.error(ParserErrorKind::UnexpectedToken);
+                    self.recover();
+                }
+            }
         }
-        (self.ast, self.errors)
+
+        (self.ast, roots, self.errors)
     }
 }
 
@@ -74,8 +89,25 @@ impl Parser<'_> {
     fn is_at_end(&self) -> bool {
         self.peek_kind(0) == TokenKind::EndOfFile
     }
+
+    fn recover(&mut self) {
+        self.advance();
+
+        while !self.is_at_end() {
+            let kind = self.peek_kind(0);
+            if matches!(
+                kind,
+                TokenKind::Keyword(Keyword::Let) | TokenKind::Keyword(Keyword::Return)
+            ) {
+                return;
+            }
+
+            self.advance();
+        }
+    }
 }
 
+// expression parsing, uses pratt parsing technique
 impl Parser<'_> {
     fn parse_expression(&mut self, min_binding_power: u8) -> Result<ExprId, ()> {
         let mut lhs = self.parse_prefix()?;
@@ -160,9 +192,7 @@ impl Parser<'_> {
             }
         }
     }
-}
 
-impl Parser<'_> {
     // unaries bind tighter than infixes
     fn prefix_binding_power(&self, kind: TokenKind) -> ((), u8) {
         match kind {
@@ -193,58 +223,132 @@ impl Parser<'_> {
     }
 }
 
+// statement parsing
+impl Parser<'_> {
+    fn parse_statement(&mut self) -> Result<StmtId, ()> {
+        let kind = self.peek_kind(0);
+        let keyword = if let TokenKind::Keyword(k) = kind {
+            k
+        } else {
+            self.error(ParserErrorKind::UnexpectedToken);
+            return Err(());
+        };
+
+        match keyword {
+            Keyword::Let => self.parse_let_statement(),
+            Keyword::Return => self.parse_return_statement(),
+        }
+    }
+
+    fn parse_let_statement(&mut self) -> Result<StmtId, ()> {
+        let let_token = self.advance();
+
+        let name_token = self.consume(
+            TokenKind::Identifier,
+            ParserErrorKind::ExpectedIdentifierAfterLet,
+        )?;
+        let name_symbol = self.get_symbol(name_token);
+
+        self.consume(
+            TokenKind::Equal,
+            ParserErrorKind::ExpectedEqualAfterLetIdentifier,
+        )?;
+
+        let value_expr = self.parse_expression(0)?;
+        let value_node = self.ast.get_expr(value_expr);
+
+        let (start, end) = (let_token.span.start, value_node.span.end);
+        let span = Span::new(start, end);
+        Ok(self.ast.let_stmt(name_symbol, value_expr, span))
+    }
+
+    fn parse_return_statement(&mut self) -> Result<StmtId, ()> {
+        let return_token = self.advance();
+
+        let value_expr = self.parse_expression(0)?;
+
+        let span = Span::new(
+            return_token.span.start,
+            self.ast.get_expr(value_expr).span.end,
+        );
+
+        Ok(self.ast.return_stmt(value_expr, span))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stock_ast::ExprKind;
+    use stock_ast::{ExprKind, StmtKind};
     use stock_lexer::Lexer;
     use stock_span::Interner;
 
-    // small utility to print ast nodes in a readable format
-    fn tostring_ast(ast: &Ast, interner: &Interner, expr_id: ExprId) -> String {
-        tostring_ast_inner(ast, interner, expr_id, 0)
-    }
-
-    fn tostring_ast_inner(ast: &Ast, interner: &Interner, expr_id: ExprId, depth: usize) -> String {
+    // small utilites to print ast nodes in a readable format
+    fn tostring_ast_expr(ast: &Ast, interner: &Interner, expr_id: ExprId, depth: usize) -> String {
         let expr = ast.get_expr(expr_id);
         let indent = "  ".repeat(depth);
         let next_indent = "  ".repeat(depth + 1);
 
         match expr.kind {
             ExprKind::Literal { kind, value } => {
-                format!("{:?}({:?})", kind, interner.lookup(value))
+                format!("{:?}({})", kind, interner.lookup(value))
             }
             ExprKind::Binary { op, lhs, rhs } => {
-                let lhs_str = tostring_ast_inner(ast, interner, lhs, depth + 1);
-                let rhs_str = tostring_ast_inner(ast, interner, rhs, depth + 1);
+                let lhs_str = tostring_ast_expr(ast, interner, lhs, depth + 1);
+                let rhs_str = tostring_ast_expr(ast, interner, rhs, depth + 1);
                 format!(
                     "{:?} {{\n{}lhs: {},\n{}rhs: {}\n{}}}",
                     op, next_indent, lhs_str, next_indent, rhs_str, indent
                 )
             }
             ExprKind::Unary { op, rhs } => {
-                let rhs_str = tostring_ast_inner(ast, interner, rhs, depth + 1);
+                let rhs_str = tostring_ast_expr(ast, interner, rhs, depth + 1);
                 format!("{:?}({})", op, rhs_str)
+            }
+        }
+    }
+
+    fn tostring_ast_stmt(ast: &Ast, interner: &Interner, stmt_id: StmtId, depth: usize) -> String {
+        let stmt = ast.get_stmt(stmt_id);
+        let indent = "  ".repeat(depth);
+        let next_indent = "  ".repeat(depth + 1);
+
+        match stmt.kind {
+            StmtKind::Let { name, value } => {
+                let value_str = tostring_ast_expr(ast, interner, value, depth + 1);
+                format!(
+                    "Let {{\n{}name: {},\n{}value: {}\n{}}}",
+                    next_indent,
+                    interner.lookup(name),
+                    next_indent,
+                    value_str,
+                    indent
+                )
+            }
+            StmtKind::Return { value } => {
+                let value_str = tostring_ast_expr(ast, interner, value, depth + 1);
+                format!("Return({})", value_str)
             }
         }
     }
 
     #[test]
     fn playground() {
-        let source = "(4 + 5) * 67";
+        let source = "let x = 10 + 5 return 2";
 
         let mut interner = Interner::new();
         let tokens = Lexer::lex(source, &mut interner);
 
-        let mut parser = Parser::new(tokens, &interner);
-        let expr_id = parser.parse_expression(0);
+        let parser = Parser::new(tokens, &interner);
+        let (ast, roots, errors) = parser.parse();
 
-        if let Ok(expr_id) = expr_id {
-            let str = tostring_ast(&parser.ast, &interner, expr_id);
-            println!("{}", str);
-        } else {
-            for error in &parser.errors {
+        if !errors.is_empty() {
+            for error in errors {
                 println!("{:?}", error);
+            }
+        } else {
+            for stmt_id in roots {
+                println!("{}", tostring_ast_stmt(&ast, &interner, stmt_id, 0))
             }
         }
     }

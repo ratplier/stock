@@ -47,6 +47,7 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
             '/' => create_token(TokenKind::Slash),
             '(' => create_token(TokenKind::LParen),
             ')' => create_token(TokenKind::RParen),
+            '=' => create_token(TokenKind::Equal),
 
             _ => {
                 self.consume_character();

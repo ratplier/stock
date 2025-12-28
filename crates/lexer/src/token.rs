@@ -18,6 +18,8 @@ pub enum TokenKind {
     LParen,
     RParen,
 
+    Equal,
+
     EndOfFile,
 
     Identifier,

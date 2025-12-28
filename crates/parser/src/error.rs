@@ -7,6 +7,11 @@ pub enum ParserErrorKind {
     UnexpectedToken,
     UnexpectedCharacter,
     InvalidNumber,
+
+    ExpectedIdentifierAfterLet,
+    ExpectedEqualAfterLetIdentifier,
+    ExpectedExpressionAfterEqual,
+    ExpectedEndOfStatement,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
