@@ -1,5 +1,7 @@
+use std::str::FromStr;
+
 use crate::error::LexerError;
-use crate::token::{Token, TokenKind};
+use crate::token::{Keyword, Token, TokenKind};
 use stock_span::{Interner, Span};
 
 pub struct Lexer<'source, 'interner> {
@@ -37,6 +39,7 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
 
         match char {
             char if char.is_ascii_digit() => self.consume_number(),
+            char if char.is_ascii_alphabetic() || char == '_' => self.consume_identifier(),
 
             '+' => create_token(TokenKind::Plus),
             '-' => create_token(TokenKind::Minus),
@@ -76,7 +79,9 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
     fn span(&self, start: usize) -> Span {
         Span::new(start as u32, self.cursor as u32)
     }
+}
 
+impl Lexer<'_, '_> {
     // consumers
     fn consume_character(&mut self) {
         let char_length = self.peek_at(0).map(|c| c.len_utf8()).unwrap_or(0);
@@ -122,6 +127,28 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
             Token::symbol(TokenKind::Number, span, symbol)
         } else {
             Token::error(LexerError::InvalidNumber, span)
+        }
+    }
+
+    pub fn consume_identifier(&mut self) -> Token {
+        let start = self.cursor;
+
+        while let Some(char) = self.peek_at(0) {
+            if char.is_ascii_alphanumeric() || char == '_' {
+                self.consume_character();
+            } else {
+                break;
+            }
+        }
+
+        let span = self.span(start);
+        let raw = span.read(self.source);
+
+        if let Ok(keyword) = Keyword::from_str(raw) {
+            Token::new(TokenKind::Keyword(keyword), span)
+        } else {
+            let symbol = self.interner.intern(raw);
+            Token::symbol(TokenKind::Identifier, span, symbol)
         }
     }
 }
@@ -187,6 +214,25 @@ mod tests {
         let token = &get_tokens("1.2.3")[0];
 
         assert_eq!(token.kind, TokenKind::Error(LexerError::InvalidNumber));
+    }
+
+    #[test]
+    fn test_keyword() {
+        assert_tokens(
+            "let return",
+            vec![
+                TokenKind::Keyword(Keyword::Let),
+                TokenKind::Keyword(Keyword::Return),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_identifier() {
+        assert_tokens(
+            "variable_name anotherVar",
+            vec![TokenKind::Identifier, TokenKind::Identifier],
+        );
     }
 
     #[test]

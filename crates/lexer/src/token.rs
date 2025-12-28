@@ -1,5 +1,11 @@
+use crate::define_keywords;
 use crate::error::LexerError;
 use stock_span::{Span, Symbol};
+
+define_keywords! {
+    "let" => Let,
+    "return" => Return,
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenKind {
@@ -13,6 +19,9 @@ pub enum TokenKind {
     RParen,
 
     EndOfFile,
+
+    Identifier,
+    Keyword(Keyword),
     Error(LexerError),
 }
 

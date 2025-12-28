@@ -1,9 +1,10 @@
 mod error;
+mod keywords;
 mod lexer;
 mod token;
 
 pub use crate::{
     error::LexerError,
     lexer::Lexer,
-    token::{Token, TokenKind},
+    token::{Keyword, Token, TokenKind},
 };
