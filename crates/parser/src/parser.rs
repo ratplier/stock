@@ -30,18 +30,9 @@ impl<'interner> Parser<'interner> {
         let mut roots = Vec::new();
 
         while !self.is_at_end() {
-            let kind = self.peek_kind(0);
-
-            match kind {
-                TokenKind::Keyword(_) => match self.parse_statement() {
-                    Ok(stmt) => roots.push(stmt),
-                    Err(_) => self.recover(),
-                },
-
-                _ => {
-                    self.error(ParserErrorKind::UnexpectedToken);
-                    self.recover();
-                }
+            match self.parse_statement() {
+                Ok(stmt) => roots.push(stmt),
+                Err(_) => self.synchronize(),
             }
         }
 
@@ -71,39 +62,105 @@ impl Parser<'_> {
         self.peek(offset).kind
     }
 
-    fn advance(&mut self) -> Token {
-        let token = self.peek(0);
-        self.cursor += 1;
-        token
+    fn previous(&self) -> Token {
+        if self.cursor == 0 {
+            panic!("called previous() at start of parser");
+        }
+        self.tokens[self.cursor - 1]
     }
 
-    fn consume(&mut self, expected: TokenKind, error: ParserErrorKind) -> Result<Token, ()> {
-        if self.peek_kind(0) == expected {
-            Ok(self.advance())
-        } else {
-            self.error(error);
-            Err(())
+    fn bump(&mut self) -> Token {
+        if !self.is_at_end() {
+            self.cursor += 1;
         }
+        self.previous()
     }
 
     fn is_at_end(&self) -> bool {
         self.peek_kind(0) == TokenKind::EndOfFile
     }
 
-    fn recover(&mut self) {
-        self.advance();
+    fn at(&self, kind: TokenKind) -> bool {
+        if self.is_at_end() {
+            return false;
+        }
+        self.peek_kind(0) == kind
+    }
+
+    fn consume(&mut self, expected: TokenKind, error: ParserErrorKind) -> Result<Token, ()> {
+        if self.at(expected) {
+            Ok(self.bump())
+        } else {
+            self.error(error);
+            Err(())
+        }
+    }
+
+    fn consume_id(&mut self, error: ParserErrorKind) -> Result<Symbol, ()> {
+        let token = self.consume(TokenKind::Identifier, error)?;
+        Ok(self.get_symbol(token))
+    }
+
+    fn span_from(&self, start: u32) -> Span {
+        let end = self.previous().span.end;
+        Span::new(start, end)
+    }
+
+    fn synchronize(&mut self) {
+        self.bump();
 
         while !self.is_at_end() {
             let kind = self.peek_kind(0);
-            if matches!(
-                kind,
-                TokenKind::Keyword(Keyword::Let) | TokenKind::Keyword(Keyword::Return)
-            ) {
-                return;
+
+            match kind {
+                TokenKind::Keyword(Keyword::Let) | TokenKind::Keyword(Keyword::Return) => return,
+                _ => {}
             }
 
-            self.advance();
+            self.bump();
         }
+    }
+
+    fn parse_expr(&mut self) -> Result<ExprId, ()> {
+        self.parse_expression(0)
+    }
+}
+
+// statement parsing
+impl Parser<'_> {
+    fn parse_statement(&mut self) -> Result<StmtId, ()> {
+        match self.peek_kind(0) {
+            TokenKind::Keyword(Keyword::Let) => self.parse_let_statement(),
+            TokenKind::Keyword(Keyword::Return) => self.parse_return_statement(),
+
+            _ => {
+                self.error(ParserErrorKind::UnexpectedToken);
+                Err(())
+            }
+        }
+    }
+
+    fn parse_let_statement(&mut self) -> Result<StmtId, ()> {
+        let let_keyword = self.bump();
+        let name_symbol = self.consume_id(ParserErrorKind::ExpectedIdentifierAfterLet)?;
+
+        self.consume(
+            TokenKind::Equal,
+            ParserErrorKind::ExpectedEqualAfterLetIdentifier,
+        )?;
+
+        let value_expr = self.parse_expr()?;
+
+        let span = self.span_from(let_keyword.span.start);
+        Ok(self.ast.let_stmt(name_symbol, value_expr, span))
+    }
+
+    fn parse_return_statement(&mut self) -> Result<StmtId, ()> {
+        let return_keyword = self.bump();
+        let value_expr = self.parse_expr()?;
+        let span = self.span_from(return_keyword.span.start);
+
+        Ok(self.ast.return_stmt(value_expr, span))
     }
 }
 
@@ -127,7 +184,7 @@ impl Parser<'_> {
                 break;
             }
 
-            let op_token = self.advance();
+            let op_token = self.bump();
             let op = self.token_to_binary_op(op_token.kind);
 
             let rhs = self.parse_expression(r_bp)?;
@@ -143,9 +200,16 @@ impl Parser<'_> {
     }
 
     fn parse_prefix(&mut self) -> Result<ExprId, ()> {
-        let token = self.advance();
+        let token = self.bump();
 
         match token.kind {
+            TokenKind::Identifier => {
+                let span = token.span;
+                let symbol = self.get_symbol(token);
+
+                Ok(self.ast.literal(LiteralKind::Identifier, symbol, span))
+            }
+
             TokenKind::Number => {
                 let span = token.span;
                 let symbol = self.get_symbol(token);
@@ -223,59 +287,6 @@ impl Parser<'_> {
     }
 }
 
-// statement parsing
-impl Parser<'_> {
-    fn parse_statement(&mut self) -> Result<StmtId, ()> {
-        let kind = self.peek_kind(0);
-        let keyword = if let TokenKind::Keyword(k) = kind {
-            k
-        } else {
-            self.error(ParserErrorKind::UnexpectedToken);
-            return Err(());
-        };
-
-        match keyword {
-            Keyword::Let => self.parse_let_statement(),
-            Keyword::Return => self.parse_return_statement(),
-        }
-    }
-
-    fn parse_let_statement(&mut self) -> Result<StmtId, ()> {
-        let let_token = self.advance();
-
-        let name_token = self.consume(
-            TokenKind::Identifier,
-            ParserErrorKind::ExpectedIdentifierAfterLet,
-        )?;
-        let name_symbol = self.get_symbol(name_token);
-
-        self.consume(
-            TokenKind::Equal,
-            ParserErrorKind::ExpectedEqualAfterLetIdentifier,
-        )?;
-
-        let value_expr = self.parse_expression(0)?;
-        let value_node = self.ast.get_expr(value_expr);
-
-        let (start, end) = (let_token.span.start, value_node.span.end);
-        let span = Span::new(start, end);
-        Ok(self.ast.let_stmt(name_symbol, value_expr, span))
-    }
-
-    fn parse_return_statement(&mut self) -> Result<StmtId, ()> {
-        let return_token = self.advance();
-
-        let value_expr = self.parse_expression(0)?;
-
-        let span = Span::new(
-            return_token.span.start,
-            self.ast.get_expr(value_expr).span.end,
-        );
-
-        Ok(self.ast.return_stmt(value_expr, span))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,9 +343,20 @@ mod tests {
         }
     }
 
+    /*
+        Let {
+            name: x,
+            value: Add {
+                lhs: Integer(10),
+                rhs: Integer(5)
+            }
+        }
+        Return(Identifier(x))
+    */
+
     #[test]
     fn playground() {
-        let source = "let x = 10 + 5 return 2";
+        let source = "let x = 10 + 5 return x";
 
         let mut interner = Interner::new();
         let tokens = Lexer::lex(source, &mut interner);

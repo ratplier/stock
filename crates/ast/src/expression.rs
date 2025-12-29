@@ -8,6 +8,7 @@ pub struct ExprId(pub u32);
 pub enum LiteralKind {
     Integer,
     Float,
+    Identifier,
 }
 
 #[derive(Debug, Clone)]
