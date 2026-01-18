@@ -12,6 +12,11 @@ pub struct Parser<'interner> {
     interner: &'interner Interner,
 }
 
+const SYNCHRONIZATION_TOKEN_KINDS: [TokenKind; 2] = [
+    TokenKind::Keyword(Keyword::Let),
+    TokenKind::Keyword(Keyword::Return),
+];
+
 impl<'interner> Parser<'interner> {
     pub fn new(tokens: Vec<Token>, interner: &'interner Interner) -> Self {
         assert!(!tokens.is_empty(), "parser must have at least one token");
@@ -101,6 +106,11 @@ impl Parser<'_> {
         Ok(self.get_symbol(token))
     }
 
+    fn consume_semicolon(&mut self) -> Result<(), ()> {
+        self.consume(TokenKind::Semicolon, ParserErrorKind::ExpectedSemicolon)
+            .map(|_| ())
+    }
+
     fn span_from(&self, start: u32) -> Span {
         let end = self.previous().span.end;
         Span::new(start, end)
@@ -109,12 +119,13 @@ impl Parser<'_> {
     fn synchronize(&mut self) {
         self.bump();
 
-        while !self.is_at_end() {
-            let kind = self.peek_kind(0);
+        loop {
+            if self.is_at_end() {
+                return;
+            }
 
-            match kind {
-                TokenKind::Keyword(Keyword::Let) | TokenKind::Keyword(Keyword::Return) => return,
-                _ => {}
+            if SYNCHRONIZATION_TOKEN_KINDS.contains(&self.peek_kind(0)) {
+                return;
             }
 
             self.bump();
@@ -150,6 +161,7 @@ impl Parser<'_> {
         )?;
 
         let value_expr = self.parse_expr()?;
+        self.consume_semicolon()?;
 
         let span = self.span_from(let_keyword.span.start);
         Ok(self.ast.let_stmt(name_symbol, value_expr, span))
@@ -158,8 +170,9 @@ impl Parser<'_> {
     fn parse_return_statement(&mut self) -> Result<StmtId, ()> {
         let return_keyword = self.bump();
         let value_expr = self.parse_expr()?;
-        let span = self.span_from(return_keyword.span.start);
+        self.consume_semicolon()?;
 
+        let span = self.span_from(return_keyword.span.start);
         Ok(self.ast.return_stmt(value_expr, span))
     }
 }
@@ -351,7 +364,7 @@ mod tests {
 
     #[test]
     fn playground() {
-        let source = "let x = 10 + 5 return x";
+        let source = "let x = 10 + 5; return x;";
 
         let mut interner = Interner::new();
         let tokens = Lexer::lex(source, &mut interner);

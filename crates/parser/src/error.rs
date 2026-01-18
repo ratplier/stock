@@ -10,10 +10,11 @@ pub enum ParserErrorKind {
     ExpectedStatement,
     ExpectedExpression,
 
+    ExpectedSemicolon,
+
     ExpectedIdentifierAfterLet,
     ExpectedEqualAfterLetIdentifier,
     ExpectedExpressionAfterEqual,
-    ExpectedEndOfStatement,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

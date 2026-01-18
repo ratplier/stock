@@ -19,6 +19,7 @@ pub enum TokenKind {
     RParen,
 
     Equal,
+    Semicolon,
 
     EndOfFile,
 

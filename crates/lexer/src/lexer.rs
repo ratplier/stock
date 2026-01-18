@@ -48,6 +48,7 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
             '(' => create_token(TokenKind::LParen),
             ')' => create_token(TokenKind::RParen),
             '=' => create_token(TokenKind::Equal),
+            ';' => create_token(TokenKind::Semicolon),
 
             _ => {
                 self.consume_character();
@@ -234,6 +235,11 @@ mod tests {
             "variable_name anotherVar",
             vec![TokenKind::Identifier, TokenKind::Identifier],
         );
+    }
+
+    #[test]
+    fn test_semicolon() {
+        assert_tokens(";", vec![TokenKind::Semicolon]);
     }
 
     #[test]
