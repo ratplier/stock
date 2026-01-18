@@ -1,6 +1,6 @@
 use crate::error::{ParserError, ParserErrorKind};
 use stock_ast::{Ast, BinaryOp, ExprId, LiteralKind, StmtId, UnaryOp};
-use stock_lexer::{Keyword, LexerError, Token, TokenKind};
+use stock_lexer::{Keyword, Token, TokenKind};
 use stock_span::{Interner, Span, Symbol};
 
 pub struct Parser<'interner> {
@@ -134,7 +134,7 @@ impl Parser<'_> {
             TokenKind::Keyword(Keyword::Return) => self.parse_return_statement(),
 
             _ => {
-                self.error(ParserErrorKind::UnexpectedToken);
+                self.error(ParserErrorKind::ExpectedStatement);
                 Err(())
             }
         }
@@ -241,17 +241,12 @@ impl Parser<'_> {
             }
 
             TokenKind::Error(lexer_error) => {
-                let kind = match lexer_error {
-                    LexerError::UnexpectedCharacter => ParserErrorKind::UnexpectedCharacter,
-                    LexerError::InvalidNumber => ParserErrorKind::InvalidNumber,
-                };
-
-                self.error(kind);
+                self.error(ParserErrorKind::LexerError(lexer_error));
                 Err(())
             }
 
             _ => {
-                self.error(ParserErrorKind::UnexpectedToken);
+                self.error(ParserErrorKind::ExpectedExpression);
                 Err(())
             }
         }

@@ -1,12 +1,14 @@
+use stock_lexer::LexerError;
 use stock_span::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParserErrorKind {
     ExpectedRParen,
 
-    UnexpectedToken,
-    UnexpectedCharacter,
-    InvalidNumber,
+    LexerError(LexerError),
+
+    ExpectedStatement,
+    ExpectedExpression,
 
     ExpectedIdentifierAfterLet,
     ExpectedEqualAfterLetIdentifier,
