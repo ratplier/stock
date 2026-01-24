@@ -1,4 +1,4 @@
-# Stock grammar
+# stock grammar
 
 | Operator        | Name            | Description                                   |
 | --------------- | --------------- | --------------------------------------------- |
@@ -17,18 +17,40 @@
 digit      ::= r"[0-9]"
 digit_list ::= digit { [ "_" ] digit }
 
-number     ::= digit_list [ "." digit_list ]
-```
+char       ::= r"[a-zA-Z_]"
+char_list  ::= char { char }
 
-```ebnf
+identifier ::= char_list
+number     ::= digit_list [ "." digit_list ]
+
+(* common *)
+
+datatype ::= number | identifier
+block    ::= "{" { statement } [ expression ] "}" 
+
 (* expressions *)
-(* using: datatypes *)
 
 expression                ::= additive_expression
 
+equality_expression       ::= comparison_expression { ("==" | "!=") comparison_expression }
+comparision_expression    ::= additive_expression { (">=" | "<=" | ">" | "<") additive_expression }
+
 additive_expression       ::= multiplicative_expression { ("+" | "-") multiplicative_expression }
 multiplicative_expression ::= unary_expression { ("*" | "/") unary_expression }
-unary_expression          ::= [ "-" ] primary_expression
+unary_expression          ::= ["-" | "!"] primary_expression
 
-primary_expression        ::= number | "(" expression ")"
+primary_expression        ::=
+    | "(" expression ")"
+    | datatype
+
+(* statements *)
+
+statement        ::=
+    | let_statement
+    | return_statement
+    | block
+statement_list   ::= statement { statement } [ expression ]
+
+let_statement    ::= "let" identifier "=" expression ";"
+return_statement ::= "return" expression ";"
 ```
