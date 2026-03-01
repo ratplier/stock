@@ -45,10 +45,15 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
             '-' => create_token(TokenKind::Minus),
             '*' => create_token(TokenKind::Star),
             '/' => create_token(TokenKind::Slash),
-            '(' => create_token(TokenKind::LParen),
-            ')' => create_token(TokenKind::RParen),
             '=' => create_token(TokenKind::Equal),
             ';' => create_token(TokenKind::Semicolon),
+
+            '(' => create_token(TokenKind::LParen),
+            ')' => create_token(TokenKind::RParen),
+            '{' => create_token(TokenKind::LBrace),
+            '}' => create_token(TokenKind::RBrace),
+            '[' => create_token(TokenKind::LBracket),
+            ']' => create_token(TokenKind::RBracket),
 
             _ => {
                 self.consume_character();
@@ -256,8 +261,6 @@ mod tests {
             .take_while(|t| t.kind != TokenKind::EndOfFile)
             .map(|t| t.symbol.expect("symbols should be occupied"))
             .collect();
-
-        println!("{:?}", symbols);
 
         assert_eq!(interner.lookup(symbols[0]), "123");
         assert_eq!(interner.lookup(symbols[1]), "456");

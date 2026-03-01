@@ -17,6 +17,10 @@ pub enum TokenKind {
     Slash,
     LParen,
     RParen,
+    LBrace,
+    RBrace,
+    LBracket,
+    RBracket,
 
     Equal,
     Semicolon,
