@@ -1,13 +1,19 @@
-#[macro_export]
+// TODO: remove the `ignore` attribute
+
 /// Defines enum of keywords and implements conversion from and to &str.
 ///
 /// Usage:
-/// ```rust
+/// ```ignore
 /// define_keywords! {
 ///     "if" => If,
 ///     "else" => Else,
 /// }
+///
+/// assert_eq!(Keyword::If.as_str(), "if");
+/// assert_eq!("else".parse::<Keyword>(), Ok(Keyword::Else));
+/// assert!("unknown".parse::<Keyword>().is_err());
 /// ```
+#[macro_export]
 macro_rules! define_keywords {
     (
         $( $string:literal => $variant:ident ),* $(,)?
