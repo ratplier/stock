@@ -25,6 +25,7 @@ pub enum ExprKind {
 
 #[derive(Debug, Clone)]
 pub struct Expr {
+    pub id: ExprId,
     pub kind: ExprKind,
     pub span: Span,
 }
@@ -40,7 +41,27 @@ pub enum StmtKind {
 
 #[derive(Debug, Clone)]
 pub struct Stmt {
+    pub id: StmtId,
     pub kind: StmtKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ItemId(pub u32);
+
+#[derive(Debug, Clone)]
+pub enum ItemKind {
+    Function {
+        name: Symbol,
+        params: Vec<Symbol>,
+        body: Vec<StmtId>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct Item {
+    pub id: ItemId,
+    pub kind: ItemKind,
     pub span: Span,
 }
 
@@ -48,6 +69,7 @@ pub struct Stmt {
 pub struct Ast {
     statements: Vec<Stmt>,
     expressions: Vec<Expr>,
+    items: Vec<Item>,
 }
 
 impl Ast {
@@ -56,13 +78,27 @@ impl Ast {
     }
 
     pub fn add_expr(&mut self, kind: ExprKind, span: Span) -> ExprId {
-        self.expressions.push(Expr { kind, span });
-        ExprId(self.expressions.len() as u32)
+        let id = ExprId(self.expressions.len() as u32 + 1);
+        let expr = Expr { id, kind, span };
+
+        self.expressions.push(expr);
+        id
     }
 
-    pub fn add_expr_stmt(&mut self, kind: StmtKind, span: Span) -> StmtId {
-        self.statements.push(Stmt { kind, span });
-        StmtId(self.statements.len() as u32)
+    pub fn add_stmt(&mut self, kind: StmtKind, span: Span) -> StmtId {
+        let id = StmtId(self.statements.len() as u32 + 1);
+        let stmt = Stmt { id, kind, span };
+
+        self.statements.push(stmt);
+        id
+    }
+
+    pub fn add_item(&mut self, kind: ItemKind, span: Span) -> ItemId {
+        let id = ItemId(self.items.len() as u32 + 1);
+        let item = Item { id, kind, span };
+
+        self.items.push(item);
+        id
     }
 
     pub fn get_expr(&self, id: ExprId) -> &Expr {
@@ -88,10 +124,10 @@ impl Ast {
     }
 
     pub fn let_stmt(&mut self, name: Symbol, value: ExprId, span: Span) -> StmtId {
-        self.add_expr_stmt(StmtKind::Let { name, value }, span)
+        self.add_stmt(StmtKind::Let { name, value }, span)
     }
 
     pub fn return_stmt(&mut self, value: ExprId, span: Span) -> StmtId {
-        self.add_expr_stmt(StmtKind::Return { value }, span)
+        self.add_stmt(StmtKind::Return { value }, span)
     }
 }
