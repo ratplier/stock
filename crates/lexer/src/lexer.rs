@@ -8,19 +8,25 @@ pub struct Lexer<'source, 'interner> {
     source: &'source str,
     cursor: usize,
     interner: &'interner mut Interner,
+    sourcemap_offset: u32,
 }
 
 impl<'source, 'interner> Lexer<'source, 'interner> {
-    pub fn new(source: &'source str, interner: &'interner mut Interner) -> Self {
+    pub fn new(
+        source: &'source str,
+        interner: &'interner mut Interner,
+        sourcemap_offset: u32,
+    ) -> Self {
         Lexer {
             source,
             cursor: 0,
             interner,
+            sourcemap_offset,
         }
     }
 
-    pub fn lex(source: &str, interner: &mut Interner) -> Vec<Token> {
-        Lexer::new(source, interner).tokenize()
+    pub fn lex(source: &str, interner: &mut Interner, sourcemap_offset: u32) -> Vec<Token> {
+        Lexer::new(source, interner, sourcemap_offset).tokenize()
     }
 
     pub fn next_token(&mut self) -> Token {
@@ -84,7 +90,10 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
     }
 
     fn span(&self, start: usize) -> Span {
-        Span::new(start as u32, self.cursor as u32)
+        Span::new(
+            self.sourcemap_offset + start as u32,
+            self.sourcemap_offset + self.cursor as u32,
+        )
     }
 }
 
@@ -166,7 +175,7 @@ mod tests {
 
     fn get_tokens(src: &str) -> Vec<Token> {
         let mut interner = Interner::new();
-        Lexer::new(src, &mut interner).tokenize()
+        Lexer::new(src, &mut interner, 0).tokenize()
     }
 
     fn assert_tokens(src: &str, expected: Vec<TokenKind>) {
@@ -253,7 +262,7 @@ mod tests {
 
         let source = "123 456";
         let mut interner = Interner::new();
-        let tokens = Lexer::lex(source, &mut interner);
+        let tokens = Lexer::lex(source, &mut interner, 0);
         println!("{:?}", tokens);
 
         let symbols: Vec<_> = tokens

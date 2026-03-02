@@ -367,7 +367,7 @@ mod tests {
         let source = "let x = 10 + 5; return x;";
 
         let mut interner = Interner::new();
-        let tokens = Lexer::lex(source, &mut interner);
+        let tokens = Lexer::lex(source, &mut interner, 0);
 
         let parser = Parser::new(tokens, &interner);
         let (ast, roots, errors) = parser.parse();
