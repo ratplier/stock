@@ -1,11 +1,21 @@
-mod arena;
-mod expression;
-mod operators;
-mod statement;
+pub mod ast;
 
-pub use crate::{
-    arena::Ast,
-    expression::{Expr, ExprId, ExprKind, LiteralKind},
-    operators::{BinaryOp, UnaryOp},
-    statement::{Stmt, StmtId, StmtKind},
-};
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LiteralKind {
+    Integer,
+    Float,
+    Identifier,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinaryOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnaryOp {
+    Negate,
+}

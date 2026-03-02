@@ -1,5 +1,8 @@
 use crate::error::{ParserError, ParserErrorKind};
-use stock_ast::{Ast, BinaryOp, ExprId, LiteralKind, StmtId, UnaryOp};
+use stock_ast::{
+    BinaryOp, LiteralKind, UnaryOp,
+    ast::{Ast, ExprId, StmtId},
+};
 use stock_lexer::{Keyword, Token, TokenKind};
 use stock_span::{Interner, Span, Symbol};
 
@@ -298,7 +301,7 @@ impl Parser<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stock_ast::{ExprKind, StmtKind};
+    use stock_ast::ast::{ExprKind, StmtKind};
     use stock_lexer::Lexer;
     use stock_span::Interner;
 
