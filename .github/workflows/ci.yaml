@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+
+jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      
+      - name: check formatting
+        run: cargo fmt --all -- --check
+
+  rustclippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: swatinem/rust-cache@v2
+
+      - name: check clippy
+        run: cargo clippy --all -- -D warnings
+
+  rusttest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+
+      - name: run tests
+        run: cargo test --all
