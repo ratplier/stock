@@ -1,0 +1,11 @@
+[package]
+name = "stock_syntax"
+version = "0.1.0"
+
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[dependencies]
+stock_source = { workspace = true }
