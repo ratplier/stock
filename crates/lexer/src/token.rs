@@ -5,6 +5,7 @@ use stock_span::{Span, Symbol};
 define_keywords! {
     "let" => Let,
     "return" => Return,
+    "fn" => Fn,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -24,6 +25,7 @@ pub enum TokenKind {
 
     Equal,
     Semicolon,
+    Comma,
 
     EndOfFile,
 

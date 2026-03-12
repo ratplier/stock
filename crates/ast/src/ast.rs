@@ -108,6 +108,10 @@ impl Ast {
     pub fn get_stmt(&self, id: StmtId) -> &Stmt {
         &self.statements[(id.0 - 1) as usize]
     }
+
+    pub fn get_item(&self, id: ItemId) -> &Item {
+        &self.items[(id.0 - 1) as usize]
+    }
 }
 
 impl Ast {
@@ -129,5 +133,15 @@ impl Ast {
 
     pub fn return_stmt(&mut self, value: ExprId, span: Span) -> StmtId {
         self.add_stmt(StmtKind::Return { value }, span)
+    }
+
+    pub fn function(
+        &mut self,
+        name: Symbol,
+        params: Vec<Symbol>,
+        body: Vec<StmtId>,
+        span: Span,
+    ) -> ItemId {
+        self.add_item(ItemKind::Function { name, params, body }, span)
     }
 }

@@ -2,6 +2,6 @@ mod error;
 mod parser;
 
 pub use crate::{
-    error::{ParserError, ParserErrorKind},
+    error::{ParseError, ParseErrorKind},
     parser::Parser,
 };

@@ -1,7 +1,7 @@
-use crate::error::{ParserError, ParserErrorKind};
+use crate::error::{ParseError, ParseErrorKind};
 use stock_ast::{
     BinaryOp, LiteralKind, UnaryOp,
-    ast::{Ast, ExprId, StmtId},
+    ast::{Ast, ExprId, ItemId, StmtId},
 };
 use stock_lexer::{Keyword, Token, TokenKind};
 use stock_span::{Interner, Span, Symbol};
@@ -11,7 +11,7 @@ pub struct Parser<'interner> {
     cursor: usize,
 
     ast: Ast,
-    errors: Vec<ParserError>,
+    errors: Vec<ParseError>,
     interner: &'interner Interner,
 }
 
@@ -34,12 +34,12 @@ impl<'interner> Parser<'interner> {
         }
     }
 
-    pub fn parse(mut self) -> (Ast, Vec<StmtId>, Vec<ParserError>) {
+    pub fn parse(mut self) -> (Ast, Vec<ItemId>, Vec<ParseError>) {
         let mut roots = Vec::new();
 
         while !self.is_at_end() {
-            match self.parse_statement() {
-                Ok(stmt) => roots.push(stmt),
+            match self.parse_item() {
+                Ok(item) => roots.push(item),
                 Err(_) => self.synchronize(),
             }
         }
@@ -49,9 +49,9 @@ impl<'interner> Parser<'interner> {
 }
 
 impl Parser<'_> {
-    fn error(&mut self, error: ParserErrorKind) {
+    fn error(&mut self, error: ParseErrorKind) {
         let span = self.peek(0).span;
-        let error = ParserError::new(error, span);
+        let error = ParseError::new(error, span);
         self.errors.push(error);
     }
 
@@ -95,7 +95,7 @@ impl Parser<'_> {
         self.peek_kind(0) == kind
     }
 
-    fn consume(&mut self, expected: TokenKind, error: ParserErrorKind) -> Result<Token, ()> {
+    fn consume(&mut self, expected: TokenKind, error: ParseErrorKind) -> Result<Token, ()> {
         if self.at(expected) {
             Ok(self.bump())
         } else {
@@ -104,13 +104,13 @@ impl Parser<'_> {
         }
     }
 
-    fn consume_id(&mut self, error: ParserErrorKind) -> Result<Symbol, ()> {
+    fn consume_id(&mut self, error: ParseErrorKind) -> Result<Symbol, ()> {
         let token = self.consume(TokenKind::Identifier, error)?;
         Ok(self.get_symbol(token))
     }
 
     fn consume_semicolon(&mut self) -> Result<(), ()> {
-        self.consume(TokenKind::Semicolon, ParserErrorKind::ExpectedSemicolon)
+        self.consume(TokenKind::Semicolon, ParseErrorKind::ExpectedSemicolon)
             .map(|_| ())
     }
 
@@ -140,6 +140,81 @@ impl Parser<'_> {
     }
 }
 
+// shared parsing utilities
+impl Parser<'_> {
+    fn parse_block(&mut self) -> Result<Vec<StmtId>, ()> {
+        self.consume(TokenKind::LBrace, ParseErrorKind::ExpectedLBrace)?;
+
+        let mut statements = Vec::new();
+        while !self.is_at_end() && !self.at(TokenKind::RBrace) {
+            match self.parse_statement() {
+                Ok(stmt) => statements.push(stmt),
+                Err(_) => self.synchronize(),
+            }
+        }
+
+        self.consume(TokenKind::RBrace, ParseErrorKind::ExpectedRBrace)?;
+
+        Ok(statements)
+    }
+}
+
+// item parsing
+impl Parser<'_> {
+    fn parse_item(&mut self) -> Result<ItemId, ()> {
+        match self.peek_kind(0) {
+            TokenKind::Keyword(Keyword::Fn) => self.parse_function_item(),
+
+            _ => {
+                self.error(ParseErrorKind::ExpectedItem);
+                Err(())
+            }
+        }
+    }
+
+    fn parse_function_item(&mut self) -> Result<ItemId, ()> {
+        let fn_keyword = self.bump();
+        let name = self.consume_id(ParseErrorKind::ExpectedIdentifierAfterFn)?;
+
+        self.consume(
+            TokenKind::LParen,
+            ParseErrorKind::ExpectedLParenBeforeFnParameters,
+        )?;
+
+        let parameters = {
+            let mut parameters = Vec::new();
+
+            loop {
+                if self.at(TokenKind::RParen) {
+                    break;
+                }
+
+                let name_symbol = self.consume_id(ParseErrorKind::ExpectedIdentifierAfterFn)?;
+                parameters.push(name_symbol);
+
+                if !self.at(TokenKind::Comma) {
+                    break;
+                }
+
+                self.bump();
+            }
+
+            parameters
+        };
+
+        self.consume(
+            TokenKind::RParen,
+            ParseErrorKind::ExpectedRParenAfterFnParameters,
+        )?;
+
+        let body = self.parse_block()?;
+        let span = self.span_from(fn_keyword.span.start);
+        let function = self.ast.function(name, parameters, body, span);
+
+        Ok(function)
+    }
+}
+
 // statement parsing
 impl Parser<'_> {
     fn parse_statement(&mut self) -> Result<StmtId, ()> {
@@ -148,7 +223,7 @@ impl Parser<'_> {
             TokenKind::Keyword(Keyword::Return) => self.parse_return_statement(),
 
             _ => {
-                self.error(ParserErrorKind::ExpectedStatement);
+                self.error(ParseErrorKind::ExpectedStatement);
                 Err(())
             }
         }
@@ -156,11 +231,11 @@ impl Parser<'_> {
 
     fn parse_let_statement(&mut self) -> Result<StmtId, ()> {
         let let_keyword = self.bump();
-        let name_symbol = self.consume_id(ParserErrorKind::ExpectedIdentifierAfterLet)?;
+        let name_symbol = self.consume_id(ParseErrorKind::ExpectedIdentifierAfterLet)?;
 
         self.consume(
             TokenKind::Equal,
-            ParserErrorKind::ExpectedEqualAfterLetIdentifier,
+            ParseErrorKind::ExpectedEqualAfterLetIdentifier,
         )?;
 
         let value_expr = self.parse_expr()?;
@@ -242,7 +317,7 @@ impl Parser<'_> {
 
             TokenKind::LParen => {
                 let expr = self.parse_expression(0)?;
-                self.consume(TokenKind::RParen, ParserErrorKind::ExpectedRParen)?;
+                self.consume(TokenKind::RParen, ParseErrorKind::ExpectedRParen)?;
                 Ok(expr)
             }
 
@@ -257,12 +332,12 @@ impl Parser<'_> {
             }
 
             TokenKind::Error(lexer_error) => {
-                self.error(ParserErrorKind::LexerError(lexer_error));
+                self.error(ParseErrorKind::LexerError(lexer_error));
                 Err(())
             }
 
             _ => {
-                self.error(ParserErrorKind::ExpectedExpression);
+                self.error(ParseErrorKind::ExpectedExpression);
                 Err(())
             }
         }
@@ -301,7 +376,7 @@ impl Parser<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stock_ast::ast::{ExprKind, StmtKind};
+    use stock_ast::ast::{ExprKind, ItemKind, StmtKind};
     use stock_lexer::Lexer;
     use stock_span::Interner;
 
@@ -354,6 +429,43 @@ mod tests {
         }
     }
 
+    fn tostring_ast_item(ast: &Ast, interner: &Interner, item_id: ItemId, depth: usize) -> String {
+        let item = ast.get_item(item_id);
+        let indent = "  ".repeat(depth);
+        let next_indent = "  ".repeat(depth + 1);
+
+        match &item.kind {
+            ItemKind::Function { name, params, body } => {
+                let params_str = params
+                    .iter()
+                    .map(|p| interner.lookup(*p))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let body_str = body
+                    .iter()
+                    .map(|s| {
+                        let stmt_str = tostring_ast_stmt(ast, interner, *s, depth + 1);
+                        format!("{}{}", next_indent, stmt_str)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                format!(
+                    "{}Function {{\n{}name: {},\n{}params: [{}],\n{}body: [\n{}\n{}]\n{}}}",
+                    indent,
+                    next_indent,
+                    interner.lookup(*name),
+                    next_indent,
+                    params_str,
+                    next_indent,
+                    body_str,
+                    next_indent,
+                    indent
+                )
+            }
+        }
+    }
+
     /*
         Let {
             name: x,
@@ -367,7 +479,7 @@ mod tests {
 
     #[test]
     fn playground() {
-        let source = "let x = 10 + 5; return x;";
+        let source = "fn main(a, b, c) {return 2;}";
 
         let mut interner = Interner::new();
         let tokens = Lexer::lex(source, &mut interner, 0);
@@ -380,8 +492,8 @@ mod tests {
                 println!("{:?}", error);
             }
         } else {
-            for stmt_id in roots {
-                println!("{}", tostring_ast_stmt(&ast, &interner, stmt_id, 0))
+            for item_id in roots {
+                println!("{}", tostring_ast_item(&ast, &interner, item_id, 0))
             }
         }
     }

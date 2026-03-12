@@ -2,29 +2,46 @@ use stock_lexer::LexerError;
 use stock_span::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParserErrorKind {
-    ExpectedRParen,
-
+pub enum ParseErrorKind {
     LexerError(LexerError),
 
+    // structural / punctuation
+    ExpectedLParen,
+    ExpectedRParen,
+    ExpectedLBrace,
+    ExpectedRBrace,
+    ExpectedSemicolon,
+    MissingCommaBetweenParameters,
+
+    // stream issues
+    UnexpectedEOF,
+    UnexpectedToken,
+
+    // grammar expectations
     ExpectedStatement,
     ExpectedExpression,
+    ExpectedItem,
 
-    ExpectedSemicolon,
-
+    // identifier / name related
     ExpectedIdentifierAfterLet,
     ExpectedEqualAfterLetIdentifier,
     ExpectedExpressionAfterEqual,
+
+    ExpectedIdentifierAfterFn,
+    ExpectedLParenBeforeFnParameters,
+    ExpectedParameterIdentifier,
+    ExpectedRParenAfterFnParameters,
+    UnterminatedBlock,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParserError {
-    pub kind: ParserErrorKind,
+pub struct ParseError {
+    pub kind: ParseErrorKind,
     pub span: Span,
 }
 
-impl ParserError {
-    pub fn new(kind: ParserErrorKind, span: Span) -> Self {
-        ParserError { kind, span }
+impl ParseError {
+    pub fn new(kind: ParseErrorKind, span: Span) -> Self {
+        ParseError { kind, span }
     }
 }

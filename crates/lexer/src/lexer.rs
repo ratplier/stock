@@ -61,6 +61,8 @@ impl<'source, 'interner> Lexer<'source, 'interner> {
             '[' => create_token(TokenKind::LBracket),
             ']' => create_token(TokenKind::RBracket),
 
+            ',' => create_token(TokenKind::Comma),
+
             _ => {
                 self.consume_character();
                 Token::error(LexerError::UnexpectedCharacter, self.span(start))
