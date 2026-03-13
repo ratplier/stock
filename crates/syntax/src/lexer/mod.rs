@@ -5,7 +5,7 @@ pub use token::{Token, TokenKind};
 
 pub struct Lexer<'a> {
     source: &'a [u8],
-    cursor: u32,
+    cursor: usize,
 }
 
 impl<'a> Lexer<'a> {
@@ -38,14 +38,14 @@ impl<'a> Lexer<'a> {
 
 impl Lexer<'_> {
     fn advance(&mut self) -> Option<u8> {
-        self.source.get(self.cursor as usize).map(|&byte| {
+        self.source.get(self.cursor).map(|&byte| {
             self.cursor += 1;
             byte
         })
     }
 
     fn peek(&self) -> Option<u8> {
-        self.source.get(self.cursor as usize).copied()
+        self.source.get(self.cursor).copied()
     }
 
     fn consume(&mut self, expected: u8) -> bool {
@@ -58,11 +58,11 @@ impl Lexer<'_> {
     }
 
     fn lookahead(&self, offset: u32) -> Option<u8> {
-        self.source.get((self.cursor + offset) as usize).copied()
+        self.source.get(self.cursor + (offset as usize)).copied()
     }
 
-    fn span_from(&self, start: u32) -> Span {
-        Span::new(start, self.cursor)
+    fn span_from(&self, start: usize) -> Span {
+        Span::new(start as u32, self.cursor as u32)
     }
 }
 
