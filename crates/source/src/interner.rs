@@ -1,43 +1,35 @@
-use std::collections::HashMap;
+use crate::span::Span;
+use lasso::{Rodeo, Spur};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Symbol(pub u32);
+pub type Symbol = Spur;
 
 pub struct Interner {
-    store: Vec<String>,
-    map: HashMap<String, Symbol>,
+    rodeo: Rodeo,
 }
 
 impl Interner {
     pub fn new() -> Self {
         Self {
-            store: Vec::new(),
-            map: HashMap::new(),
+            rodeo: Rodeo::new(),
         }
     }
 
-    pub fn intern(&mut self, name: &str) -> Symbol {
-        if let Some(&id) = self.map.get(name) {
-            return id;
-        }
-
-        let id = Symbol(self.store.len() as u32);
-        let owned_string = name.to_string();
-
-        self.store.push(owned_string.clone());
-        self.map.insert(owned_string, id);
-
-        id
+    pub fn intern(&mut self, bytes: &[u8]) -> Symbol {
+        let string = unsafe { std::str::from_utf8_unchecked(bytes) };
+        self.rodeo.get_or_intern(string)
     }
 
-    pub fn lookup(&self, symbol: Symbol) -> &str {
-        &self.store[symbol.0 as usize]
+    pub fn intern_source(&mut self, source: &[u8], span: Span) -> Symbol {
+        self.intern(span.read(source))
+    }
+
+    pub fn resolve(&self, symbol: Symbol) -> &str {
+        self.rodeo.resolve(&symbol)
     }
 }
 
-
 impl Default for Interner {
     fn default() -> Self {
-        Interner::new()
+        Self::new()
     }
 }
