@@ -21,7 +21,7 @@ pub enum TokenKind {
     EndOfFile, Error
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
