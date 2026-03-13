@@ -24,4 +24,8 @@ impl Span {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    pub fn read<'a>(&self, source: &'a [u8]) -> &'a [u8] {
+        &source[self.start as usize..self.end as usize]
+    }
 }
