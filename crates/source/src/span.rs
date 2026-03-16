@@ -9,6 +9,10 @@ impl Span {
         Self { start, end }
     }
 
+    pub fn merge(a: Span, b: Span) -> Span {
+        Span::new(a.start, b.end)
+    }
+
     pub fn from_length(start: u32, len: u32) -> Self {
         Span::new(start, start + len)
     }

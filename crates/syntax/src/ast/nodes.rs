@@ -2,10 +2,18 @@ use crate::ast::id::ExprId;
 use stock_source::Symbol;
 
 #[derive(Debug)]
-pub enum BinaryOp {}
+pub enum BinaryOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
 
 #[derive(Debug)]
-pub enum UnaryOp {}
+pub enum UnaryOp {
+    Negate,
+    Not,
+}
 
 #[derive(Debug)]
 pub enum AstExpr {

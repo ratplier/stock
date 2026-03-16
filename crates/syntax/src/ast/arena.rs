@@ -45,6 +45,30 @@ impl Ast {
 
         ItemId(id as u32)
     }
+
+    pub fn get_expr(&self, id: ExprId) -> &AstExpr {
+        &self.exprs[id.0 as usize]
+    }
+
+    pub fn get_stmt(&self, id: StmtId) -> &AstStmt {
+        &self.stmts[id.0 as usize]
+    }
+
+    pub fn get_item(&self, id: ItemId) -> &AstItem {
+        &self.items[id.0 as usize]
+    }
+
+    pub fn get_expr_span(&self, id: ExprId) -> Span {
+        self.expr_spans[id.0 as usize]
+    }
+
+    pub fn get_stmt_span(&self, id: StmtId) -> Span {
+        self.stmt_spans[id.0 as usize]
+    }
+
+    pub fn get_item_span(&self, id: ItemId) -> Span {
+        self.item_spans[id.0 as usize]
+    }
 }
 
 impl Ast {
