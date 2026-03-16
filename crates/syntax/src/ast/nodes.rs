@@ -1,7 +1,7 @@
 use crate::ast::id::ExprId;
 use stock_source::Symbol;
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BinaryOp {
     Add,
     Subtract,
@@ -9,13 +9,13 @@ pub enum BinaryOp {
     Divide,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UnaryOp {
     Negate,
     Not,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AstExpr {
     Integer(Symbol),
     Float(Symbol),
