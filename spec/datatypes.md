@@ -119,3 +119,22 @@ fn handle_mouse(click: InputEvent::Click) {
     move_cursor(click.x, click.y)
 }
 ```
+
+**ranges:**
+
+```stock
+import std::io;
+
+let a = 1..5 // all numbers from 1-4
+
+// iterating a number range
+for number in 1..=5 {
+    // ranges are exclusive by default and can be
+    // made inclusive using the `..=` operator
+    io::println("numbers 1 to 5: {number}") 
+}
+
+// directly constructing a range
+let range = Range::from(1, 5)
+let inclusive_range = Range::inclusive(1, 5)
+```
