@@ -13,15 +13,6 @@ let answer = 42
 // mutable, explicit annotation
 let mut health: u8 = 100
 health = 95
-
-// definite assignment (works with immutable and mutable variables)
-// this works as long as `a` is assigned a value before being accessed
-let a;
-if condition {
-    a = a1;
-} else {
-    a = a2;
-}
 ```
 
 **blocks:**
