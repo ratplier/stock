@@ -18,12 +18,14 @@ extern "C" {
 }
 
 fn main() {
-    let buffer = malloc<u32>(4 * 32);
-    if !write_buf(buffer) {
-        panic!("failed to write data to buffer");
-    }
+    unsafe {
+        let buffer = malloc<u32>(4 * 32);
+        if !write_buf(buffer) {
+            panic!("failed to write data to buffer");
+        }
 
-    printf("%s".as_cstr(), buf_tostring(buffer));
-    free<u32>(buffer)
+        printf("%s".as_cstr(), buf_tostring(buffer));
+        free<u32>(buffer)
+    }
 }
 ```
