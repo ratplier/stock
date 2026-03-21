@@ -80,6 +80,10 @@ impl AstArena {
         self.add_expr(AstExpr::Float(value), span)
     }
 
+    pub fn identifier(&mut self, name: Symbol, span: Span) -> ExprId {
+        self.add_expr(AstExpr::Identifier(name), span)
+    }
+
     pub fn binary(&mut self, op: BinaryOp, lhs: ExprId, rhs: ExprId, span: Span) -> ExprId {
         self.add_expr(AstExpr::Binary { op, lhs, rhs }, span)
     }

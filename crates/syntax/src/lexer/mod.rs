@@ -22,17 +22,19 @@ impl<'a> Lexer<'a> {
             None => return Token::eof(self.span_from(start)),
         };
 
-        if byte.is_ascii_digit() {
-            return self.lex_number(interner);
-        }
+        match byte {
+            byte if byte.is_ascii_digit() => self.lex_number(interner, start),
+            byte if byte.is_ascii_alphanumeric() || byte == b'_' => {
+                self.lex_identifier(interner, start)
+            }
 
-        if let Some(kind) = self.symbol_kind(byte) {
-            return Token::new(kind, self.span_from(start));
-        }
+            byte if byte.is_ascii_punctuation() => self.lex_symbol(byte, start),
 
-        // unrecognized token
-        self.advance();
-        Token::new(TokenKind::Error, self.span_from(start))
+            _ => {
+                self.advance();
+                Token::new(TokenKind::Error, self.span_from(start))
+            }
+        }
     }
 }
 
@@ -73,7 +75,7 @@ impl Lexer<'_> {
         }
     }
 
-    fn symbol_kind(&mut self, byte: u8) -> Option<TokenKind> {
+    fn lex_symbol(&mut self, byte: u8, start: usize) -> Token {
         self.advance();
 
         let mut matches = |expected: u8, found: TokenKind, default: TokenKind| -> TokenKind {
@@ -108,14 +110,14 @@ impl Lexer<'_> {
             b':' => TokenKind::Colon,
             b';' => TokenKind::Semicolon,
 
-            _ => return None,
+            // TODO: handle error
+            _ => return Token::new(TokenKind::Error, self.span_from(start)),
         };
 
-        Some(kind)
+        Token::new(kind, self.span_from(start))
     }
 
-    fn lex_number(&mut self, interner: &mut Interner) -> Token {
-        let start = self.cursor;
+    fn lex_number(&mut self, interner: &mut Interner, start: usize) -> Token {
         let mut is_float = false;
 
         while let Some(byte) = self.peek() {
@@ -142,6 +144,26 @@ impl Lexer<'_> {
         };
 
         Token::new(kind, span)
+    }
+
+    fn lex_identifier(&mut self, interner: &mut Interner, start: usize) -> Token {
+        while let Some(byte) = self.peek() {
+            if byte.is_ascii_alphanumeric() || byte == b'_' {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+
+        let span = self.span_from(start);
+        let identifier = &self.source[start..self.cursor];
+
+        if let Some(kind) = TokenKind::keyword_from_str(identifier) {
+            return Token::new(kind, span);
+        }
+
+        let symbol = interner.intern(identifier);
+        Token::new(TokenKind::Identifier(symbol), span)
     }
 }
 
@@ -247,5 +269,16 @@ mod tests {
         assert!(matches!(tokens[1].kind, TokenKind::Integer(_)));
         assert!(matches!(tokens[2].kind, TokenKind::Float(_)));
         assert!(matches!(tokens[3].kind, TokenKind::Float(_)));
+    }
+
+    #[test]
+    fn test_lex_identifiers_keywords() {
+        let tokens = lex_all("if else variable _under_score");
+
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0].kind, TokenKind::If));
+        assert!(matches!(tokens[1].kind, TokenKind::Else));
+        assert!(matches!(tokens[2].kind, TokenKind::Identifier(_)));
+        assert!(matches!(tokens[3].kind, TokenKind::Identifier(_)));
     }
 }

@@ -20,6 +20,8 @@ pub enum AstExpr {
     Integer(Symbol),
     Float(Symbol),
 
+    Identifier(Symbol),
+
     Binary {
         op: BinaryOp,
         lhs: ExprId,
@@ -33,7 +35,10 @@ pub enum AstExpr {
 }
 
 #[derive(Debug)]
-pub enum AstStmt {}
+pub enum AstStmt {
+    Let { name: Symbol, value: ExprId },
+    Block(Vec<AstStmt>, Option<ExprId>),
+}
 
 #[derive(Debug)]
 pub enum AstItem {}

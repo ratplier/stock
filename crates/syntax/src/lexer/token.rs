@@ -9,6 +9,13 @@ pub enum TokenKind {
     Integer(Symbol), // 123, 1_000
     Float(Symbol),   // 1.0, 1e10
 
+    // identifiers
+    Identifier(Symbol), // foo
+
+    Let,
+    If, Else, Loop, Break,
+
+
     // operators
     Plus, Minus, Star, Slash,
     PlusEq, MinusEq, StarEq, SlashEq,
@@ -69,6 +76,21 @@ impl TokenKind {
 
     pub fn is_eof(&self) -> bool {
         matches!(self, TokenKind::EndOfFile)
+    }
+
+    pub fn is_identifier(&self) -> bool {
+        matches!(self, TokenKind::Identifier(_))
+    }
+
+    pub fn keyword_from_str(keyword: &[u8]) -> Option<TokenKind> {
+        match keyword {
+            b"let" => Some(TokenKind::Let),
+            b"if" => Some(TokenKind::If),
+            b"else" => Some(TokenKind::Else),
+            b"loop" => Some(TokenKind::Loop),
+            b"break" => Some(TokenKind::Break),
+            _ => None,
+        }
     }
 }
 
