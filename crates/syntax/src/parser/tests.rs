@@ -1,8 +1,11 @@
-use crate::{lexer::Lexer, parser::Parser};
-use stock_ast::{AstArena, AstExpr, BinaryOp, ExprId, UnaryOp};
+use crate::{
+    lexer::{Lexer, Token},
+    parser::Parser,
+};
+use stock_ast::{AstArena, AstExpr, AstStmt, BinaryOp, ExprId, StmtId, UnaryOp};
 use stock_source::{Interner, Symbol};
 
-fn parse(source: &str) -> (ExprId, AstArena, Interner) {
+fn lex(source: &str) -> (Vec<Token>, Interner) {
     let mut interner = Interner::new();
 
     let mut lexer = Lexer::new(source.as_bytes());
@@ -21,10 +24,25 @@ fn parse(source: &str) -> (ExprId, AstArena, Interner) {
         tokens
     };
 
+    (tokens, interner)
+}
+
+fn parse_expr(source: &str) -> (ExprId, AstArena, Interner) {
+    let (tokens, interner) = lex(source);
+
     let mut parser = Parser::new(&tokens);
     let expr = parser.parse_infix_expr(0);
 
     (expr, parser.ast, interner)
+}
+
+fn parse_stmt(source: &str) -> (StmtId, AstArena, Interner) {
+    let (tokens, interner) = lex(source);
+
+    let mut parser = Parser::new(&tokens);
+    let stmt = parser.parse_stmt();
+
+    (stmt, parser.ast, interner)
 }
 
 fn assert_symbol(interner: &Interner, symbol: &Symbol, expected: &str) {
@@ -46,7 +64,7 @@ macro_rules! assert_branch {
 
 #[test]
 fn test_integer_literal() {
-    let (expr, ast, interner) = parse("42");
+    let (expr, ast, interner) = parse_expr("42");
     let node = ast.get_expr(expr);
 
     assert_branch!(node, AstExpr::Integer(symbol) => {
@@ -56,7 +74,7 @@ fn test_integer_literal() {
 
 #[test]
 fn test_binary_expr() {
-    let (expr, ast, interner) = parse("1 + 2");
+    let (expr, ast, interner) = parse_expr("1 + 2");
     let node = ast.get_expr(expr);
 
     assert_branch!(node, AstExpr::Binary { op, lhs, rhs } => {
@@ -77,7 +95,7 @@ fn test_binary_expr() {
 
 #[test]
 fn test_nested_precedence() {
-    let (expr, ast, interner) = parse("1 + 2 * 3");
+    let (expr, ast, interner) = parse_expr("1 + 2 * 3");
     let node = ast.get_expr(expr);
 
     assert_branch!(node, AstExpr::Binary { op, lhs, rhs } => {
@@ -109,7 +127,7 @@ fn test_nested_precedence() {
 
 #[test]
 fn test_associativity() {
-    let (expr, ast, interner) = parse("1 + 2 + 3");
+    let (expr, ast, interner) = parse_expr("1 + 2 + 3");
     let node = ast.get_expr(expr);
 
     assert_branch!(node, AstExpr::Binary { op, lhs, rhs } => {
@@ -141,7 +159,7 @@ fn test_associativity() {
 
 #[test]
 fn test_unary_expr() {
-    let (expr, ast, interner) = parse("-1");
+    let (expr, ast, interner) = parse_expr("-1");
     let node = ast.get_expr(expr);
 
     assert_branch!(node, AstExpr::Unary { op, operand } => {
@@ -149,6 +167,21 @@ fn test_unary_expr() {
 
         let operand = ast.get_expr(*operand);
         assert_branch!(operand, AstExpr::Integer(symbol) => {
+            assert_symbol(&interner, symbol, "1");
+        });
+    })
+}
+
+#[test]
+fn test_let_stmt() {
+    let (stmt, ast, interner) = parse_stmt("let x = 1;");
+    let node = ast.get_stmt(stmt);
+
+    assert_branch!(node, AstStmt::Let { name, value } => {
+        assert_symbol(&interner, name, "x");
+
+        let value = ast.get_expr(*value);
+        assert_branch!(value, AstExpr::Integer(symbol) => {
             assert_symbol(&interner, symbol, "1");
         });
     })

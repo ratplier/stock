@@ -92,3 +92,9 @@ impl AstArena {
         self.add_expr(AstExpr::Unary { op, operand }, span)
     }
 }
+
+impl AstArena {
+    pub fn let_stmt(&mut self, name: Symbol, value: ExprId, span: Span) -> StmtId {
+        self.add_stmt(AstStmt::Let { name, value }, span)
+    }
+}

@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests;
 
-use stock_source::Span;
+use stock_source::{Span, Symbol};
 
 use crate::lexer::{Token, TokenKind};
-use stock_ast::{AstArena, ExprId};
+use stock_ast::{AstArena, ExprId, StmtId};
 
 pub struct Parser<'a> {
     tokens: &'a [Token],
@@ -43,14 +43,26 @@ impl Parser<'_> {
         token
     }
 
-    fn expect(&mut self, kind: TokenKind) -> Option<Span> {
+    fn expect_token(&mut self, kind: TokenKind) -> Option<Token> {
         let token = self.peek();
         if token.kind == kind {
-            Some(self.advance().span)
+            Some(self.advance())
         } else {
             // TODO: report error
             None
         }
+    }
+
+    fn expect(&mut self, kind: TokenKind) -> Option<Span> {
+        self.expect_token(kind).map(|token| token.span)
+    }
+
+    fn expect_id(&mut self, kind: TokenKind) -> Option<Symbol> {
+        self.expect_token(kind).and_then(|token| token.symbol)
+    }
+
+    fn span_from(&self, start: usize) -> Span {
+        Span::new(start as u32, self.cursor as u32)
     }
 }
 
@@ -92,10 +104,20 @@ impl Parser<'_> {
     fn parse_prefix_expr(&mut self) -> ExprId {
         let token = self.advance();
 
-        match token.kind {
-            TokenKind::Integer(symbol) => self.ast.integer(symbol, token.span),
-            TokenKind::Float(symbol) => self.ast.float(symbol, token.span),
+        if token.has_symbol() {
+            let kind = token.kind;
+            let symbol = token.symbol.unwrap();
 
+            return match kind {
+                TokenKind::Integer => self.ast.integer(symbol, token.span),
+                TokenKind::Float => self.ast.float(symbol, token.span),
+                TokenKind::Identifier => self.ast.identifier(symbol, token.span),
+
+                _ => unreachable!("token should have a symbol"),
+            };
+        }
+
+        match token.kind {
             kind if kind.is_unary_op() => {
                 let r_bp = kind.prefix_binding_power().unwrap();
                 let rhs = self.parse_infix_expr(r_bp);
@@ -109,5 +131,30 @@ impl Parser<'_> {
 
             _ => todo!("error handling"),
         }
+    }
+}
+
+impl Parser<'_> {
+    fn parse_stmt(&mut self) -> StmtId {
+        let token = self.peek();
+
+        match token.kind {
+            TokenKind::Let => self.parse_let_stmt(),
+            _ => todo!("error handling"),
+        }
+    }
+
+    fn parse_let_stmt(&mut self) -> StmtId {
+        // TODO: proper error handling
+        let start = self.cursor;
+        self.expect(TokenKind::Let).unwrap();
+
+        let name = self.expect_id(TokenKind::Identifier).unwrap();
+        self.expect(TokenKind::Eq).unwrap();
+
+        let value = self.parse_infix_expr(0);
+        self.expect(TokenKind::Semicolon).unwrap();
+
+        self.ast.let_stmt(name, value, self.span_from(start))
     }
 }
