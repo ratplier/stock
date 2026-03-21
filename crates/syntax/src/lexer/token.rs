@@ -6,11 +6,11 @@ use stock_source::{Span, Symbol};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TokenKind {
     // literals
-    Integer(Symbol), // 123, 1_000
-    Float(Symbol),   // 1.0, 1e10
+    Integer, // 123, 1_000
+    Float,   // 1.0, 1e10
 
     // identifiers
-    Identifier(Symbol), // foo
+    Identifier, // foo
 
     Let,
     If, Else, Loop, Break,
@@ -78,10 +78,6 @@ impl TokenKind {
         matches!(self, TokenKind::EndOfFile)
     }
 
-    pub fn is_identifier(&self) -> bool {
-        matches!(self, TokenKind::Identifier(_))
-    }
-
     pub fn keyword_from_str(keyword: &[u8]) -> Option<TokenKind> {
         match keyword {
             b"let" => Some(TokenKind::Let),
@@ -98,14 +94,31 @@ impl TokenKind {
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
+    pub symbol: Option<Symbol>,
 }
 
 impl Token {
     pub fn new(kind: TokenKind, span: Span) -> Self {
-        Self { kind, span }
+        Self {
+            kind,
+            span,
+            symbol: None,
+        }
+    }
+
+    pub fn with_symbol(kind: TokenKind, symbol: Symbol, span: Span) -> Self {
+        Self {
+            kind,
+            span,
+            symbol: Some(symbol),
+        }
     }
 
     pub fn eof(span: Span) -> Self {
         Self::new(TokenKind::EndOfFile, span)
+    }
+
+    pub fn has_symbol(&self) -> bool {
+        self.symbol.is_some()
     }
 }

@@ -138,12 +138,12 @@ impl Lexer<'_> {
         let span = self.span_from(start);
         let symbol = interner.intern_source(self.source, span);
         let kind = if is_float {
-            TokenKind::Float(symbol)
+            TokenKind::Float
         } else {
-            TokenKind::Integer(symbol)
+            TokenKind::Integer
         };
 
-        Token::new(kind, span)
+        Token::with_symbol(kind, symbol, span)
     }
 
     fn lex_identifier(&mut self, interner: &mut Interner, start: usize) -> Token {
@@ -163,7 +163,7 @@ impl Lexer<'_> {
         }
 
         let symbol = interner.intern(identifier);
-        Token::new(TokenKind::Identifier(symbol), span)
+        Token::with_symbol(TokenKind::Identifier, symbol, span)
     }
 }
 
@@ -265,10 +265,10 @@ mod tests {
         let tokens = lex_all("123 1_000 1.0 1e10");
 
         assert_eq!(tokens.len(), 4);
-        assert!(matches!(tokens[0].kind, TokenKind::Integer(_)));
-        assert!(matches!(tokens[1].kind, TokenKind::Integer(_)));
-        assert!(matches!(tokens[2].kind, TokenKind::Float(_)));
-        assert!(matches!(tokens[3].kind, TokenKind::Float(_)));
+        assert_eq!(tokens[0].kind, TokenKind::Integer);
+        assert_eq!(tokens[1].kind, TokenKind::Integer);
+        assert_eq!(tokens[2].kind, TokenKind::Float);
+        assert_eq!(tokens[3].kind, TokenKind::Float);
     }
 
     #[test]
@@ -276,9 +276,9 @@ mod tests {
         let tokens = lex_all("if else variable _under_score");
 
         assert_eq!(tokens.len(), 4);
-        assert!(matches!(tokens[0].kind, TokenKind::If));
-        assert!(matches!(tokens[1].kind, TokenKind::Else));
-        assert!(matches!(tokens[2].kind, TokenKind::Identifier(_)));
-        assert!(matches!(tokens[3].kind, TokenKind::Identifier(_)));
+        assert_eq!(tokens[0].kind, TokenKind::If);
+        assert_eq!(tokens[1].kind, TokenKind::Else);
+        assert_eq!(tokens[2].kind, TokenKind::Identifier);
+        assert_eq!(tokens[3].kind, TokenKind::Identifier);
     }
 }
