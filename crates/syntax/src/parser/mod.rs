@@ -3,12 +3,12 @@ mod tests;
 
 use stock_source::Span;
 
-use crate::ast::{Ast, ExprId};
 use crate::lexer::{Token, TokenKind};
+use stock_ast::{AstArena, ExprId};
 
 pub struct Parser<'a> {
     tokens: &'a [Token],
-    ast: Ast,
+    ast: AstArena,
     cursor: usize,
 }
 
@@ -16,7 +16,7 @@ impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
         Self {
             tokens,
-            ast: Ast::new(),
+            ast: AstArena::new(),
             cursor: 0,
         }
     }

@@ -1,9 +1,9 @@
-use crate::ast::id::{ExprId, ItemId, StmtId};
-use crate::ast::nodes::{AstExpr, AstItem, AstStmt, BinaryOp, UnaryOp};
+use crate::id::{ExprId, ItemId, StmtId};
+use crate::nodes::{AstExpr, AstItem, AstStmt, BinaryOp, UnaryOp};
 use stock_source::{Span, Symbol};
 
 #[derive(Debug, Default)]
-pub struct Ast {
+pub struct AstArena {
     exprs: Vec<AstExpr>,
     expr_spans: Vec<Span>,
 
@@ -14,7 +14,7 @@ pub struct Ast {
     item_spans: Vec<Span>,
 }
 
-impl Ast {
+impl AstArena {
     pub fn new() -> Self {
         Self::default()
     }
@@ -71,7 +71,7 @@ impl Ast {
     }
 }
 
-impl Ast {
+impl AstArena {
     pub fn integer(&mut self, value: Symbol, span: Span) -> ExprId {
         self.add_expr(AstExpr::Integer(value), span)
     }

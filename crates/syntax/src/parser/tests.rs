@@ -1,11 +1,8 @@
-use crate::{
-    ast::{Ast, AstExpr, BinaryOp, ExprId, UnaryOp},
-    lexer::Lexer,
-    parser::Parser,
-};
+use crate::{lexer::Lexer, parser::Parser};
+use stock_ast::{AstArena, AstExpr, BinaryOp, ExprId, UnaryOp};
 use stock_source::{Interner, Symbol};
 
-fn parse(source: &str) -> (ExprId, Ast, Interner) {
+fn parse(source: &str) -> (ExprId, AstArena, Interner) {
     let mut interner = Interner::new();
 
     let mut lexer = Lexer::new(source.as_bytes());

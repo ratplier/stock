@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOp, UnaryOp};
+use stock_ast::{BinaryOp, UnaryOp};
 use stock_source::{Span, Symbol};
 
 #[repr(u8)]

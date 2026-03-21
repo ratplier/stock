@@ -1,4 +1,4 @@
-use crate::ast::id::ExprId;
+use crate::id::ExprId;
 use stock_source::Symbol;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
