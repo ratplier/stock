@@ -69,6 +69,7 @@ impl Lexer<'_> {
 }
 
 impl Lexer<'_> {
+    // TODO: lex trivia and skip in parser
     fn skip_whitespace(&mut self) {
         while self.peek().is_some_and(|byte| byte.is_ascii_whitespace()) {
             self.advance();
@@ -118,32 +119,51 @@ impl Lexer<'_> {
     }
 
     fn lex_number(&mut self, interner: &mut Interner, start: usize) -> Token {
-        let mut is_float = false;
+        let mut kind = TokenKind::Integer;
+        self.consume_digits();
 
-        while let Some(byte) = self.peek() {
-            if byte.is_ascii_digit() || byte == b'_' {
-                self.advance();
-            } else if (byte == b'.' || byte == b'e')
-                && !is_float
-                && self.lookahead(1).is_some_and(|b| b.is_ascii_digit())
-            {
-                is_float = true;
-                self.advance();
-                continue;
-            } else {
-                break;
+        let byte = {
+            let byte = self.peek();
+            if byte.is_none() {
+                todo!("error handling");
             }
+
+            byte.unwrap()
+        };
+
+        if byte == b'.' && self.lookahead(1).is_some_and(|b| b.is_ascii_digit()) {
+            kind = TokenKind::Float;
+
+            self.advance();
+            self.consume_digits();
+        }
+
+        if byte == b'e' || byte == b'E' {
+            kind = TokenKind::Float;
+
+            self.advance();
+
+            // handle e+ and e-
+            if self.lookahead(1).is_some_and(|b| b == b'+' || b == b'-') {
+                self.advance();
+            }
+
+            self.consume_digits();
         }
 
         let span = self.span_from(start);
         let symbol = interner.intern_source(self.source, span);
-        let kind = if is_float {
-            TokenKind::Float
-        } else {
-            TokenKind::Integer
-        };
 
         Token::with_symbol(kind, symbol, span)
+    }
+
+    fn consume_digits(&mut self) {
+        while self
+            .peek()
+            .is_some_and(|byte| byte.is_ascii_digit() || byte == b'_')
+        {
+            self.advance();
+        }
     }
 
     fn lex_identifier(&mut self, interner: &mut Interner, start: usize) -> Token {
