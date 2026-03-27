@@ -69,7 +69,6 @@ impl Lexer<'_> {
 }
 
 impl Lexer<'_> {
-    // TODO: lex trivia and skip in parser
     fn skip_whitespace(&mut self) {
         while self.peek().is_some_and(|byte| byte.is_ascii_whitespace()) {
             self.advance();
@@ -79,25 +78,70 @@ impl Lexer<'_> {
     fn lex_symbol(&mut self, byte: u8, start: usize) -> Token {
         self.advance();
 
-        let mut matches = |expected: u8, found: TokenKind, default: TokenKind| -> TokenKind {
-            if self.consume(expected) {
-                found
-            } else {
-                default
-            }
-        };
-
         let kind = match byte {
-            b'+' => matches(b'=', TokenKind::PlusEq, TokenKind::Plus),
-            b'-' => matches(b'=', TokenKind::MinusEq, TokenKind::Minus),
-            b'*' => matches(b'=', TokenKind::StarEq, TokenKind::Star),
-            b'/' => matches(b'=', TokenKind::SlashEq, TokenKind::Slash),
+            b'+' => {
+                if self.consume(b'=') {
+                    TokenKind::PlusEq
+                } else {
+                    TokenKind::Plus
+                }
+            }
 
-            b'=' => matches(b'=', TokenKind::EqEq, TokenKind::Eq),
-            b'!' => matches(b'=', TokenKind::BangEq, TokenKind::Bang),
+            b'-' => {
+                if self.consume(b'=') {
+                    TokenKind::MinusEq
+                } else {
+                    TokenKind::Minus
+                }
+            }
 
-            b'<' => matches(b'=', TokenKind::LtEq, TokenKind::Lt),
-            b'>' => matches(b'=', TokenKind::GtEq, TokenKind::Gt),
+            b'*' => {
+                if self.consume(b'=') {
+                    TokenKind::StarEq
+                } else {
+                    TokenKind::Star
+                }
+            }
+
+            b'/' => {
+                if self.consume(b'=') {
+                    TokenKind::SlashEq
+                } else {
+                    TokenKind::Slash
+                }
+            }
+
+            b'=' => {
+                if self.consume(b'=') {
+                    TokenKind::EqEq
+                } else {
+                    TokenKind::Eq
+                }
+            }
+
+            b'!' => {
+                if self.consume(b'=') {
+                    TokenKind::BangEq
+                } else {
+                    TokenKind::Bang
+                }
+            }
+
+            b'<' => {
+                if self.consume(b'=') {
+                    TokenKind::LtEq
+                } else {
+                    TokenKind::Lt
+                }
+            }
+
+            b'>' => {
+                if self.consume(b'=') {
+                    TokenKind::GtEq
+                } else {
+                    TokenKind::Gt
+                }
+            }
 
             b'(' => TokenKind::LParen,
             b')' => TokenKind::RParen,
