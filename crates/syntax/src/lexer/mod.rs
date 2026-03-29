@@ -59,10 +59,6 @@ impl Lexer<'_> {
         }
     }
 
-    fn lookahead(&self, offset: u32) -> Option<u8> {
-        self.source.get(self.cursor + (offset as usize)).copied()
-    }
-
     fn span_from(&self, start: usize) -> Span {
         Span::new(start as u32, self.cursor as u32)
     }
@@ -164,50 +160,37 @@ impl Lexer<'_> {
 
     fn lex_number(&mut self, interner: &mut Interner, start: usize) -> Token {
         let mut kind = TokenKind::Integer;
-        self.consume_digits();
 
-        let byte = {
-            let byte = self.peek();
-            if byte.is_none() {
-                todo!("error handling");
-            }
-
-            byte.unwrap()
-        };
-
-        if byte == b'.' && self.lookahead(1).is_some_and(|b| b.is_ascii_digit()) {
-            kind = TokenKind::Float;
-
-            self.advance();
-            self.consume_digits();
-        }
-
-        if byte == b'e' || byte == b'E' {
-            kind = TokenKind::Float;
-
-            self.advance();
-
-            // handle e+ and e-
-            if self.lookahead(1).is_some_and(|b| b == b'+' || b == b'-') {
+        while let Some(byte) = self.peek() {
+            // check for float (1.0, 1.3e-2)
+            if byte == b'.' {
+                kind = TokenKind::Float;
                 self.advance();
+            } else if byte == b'e' || byte == b'E' {
+                kind = TokenKind::Float;
+                self.advance();
+
+                // handle sign (1e-1, 1e+1)
+                if let Some(byte) = self.peek() {
+                    if byte == b'+' || byte == b'-' {
+                        self.advance();
+                    }
+                }
             }
 
-            self.consume_digits();
+            if let Some(byte) = self.peek()
+                && (byte.is_ascii_digit() || byte == b'_')
+            {
+                self.advance();
+            } else {
+                break;
+            }
         }
 
         let span = self.span_from(start);
         let symbol = interner.intern_source(self.source, span);
 
         Token::with_symbol(kind, symbol, span)
-    }
-
-    fn consume_digits(&mut self) {
-        while self
-            .peek()
-            .is_some_and(|byte| byte.is_ascii_digit() || byte == b'_')
-        {
-            self.advance();
-        }
     }
 
     fn lex_identifier(&mut self, interner: &mut Interner, start: usize) -> Token {
