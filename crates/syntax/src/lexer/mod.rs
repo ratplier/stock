@@ -27,12 +27,11 @@ impl<'a> Lexer<'a> {
             byte if byte.is_ascii_alphanumeric() || byte == b'_' => {
                 self.lex_identifier(interner, start)
             }
-
             byte if byte.is_ascii_punctuation() => self.lex_symbol(byte, start),
 
             _ => {
                 self.advance();
-                Token::new(TokenKind::Error, self.span_from(start))
+                Token::new(TokenKind::Unknown, self.span_from(start))
             }
         }
     }
@@ -75,35 +74,45 @@ impl Lexer<'_> {
         self.advance();
 
         let kind = match byte {
-            b'+' => {
+            // operators and their compounds
+            b'+' | b'-' | b'*' | b'/' => {
+                let op = match byte {
+                    b'+' => TokenKind::Plus,
+                    b'-' => TokenKind::Minus,
+                    b'*' => TokenKind::Star,
+                    b'/' => TokenKind::Slash,
+                    _ => unreachable!(),
+                };
+
                 if self.consume(b'=') {
-                    TokenKind::PlusEq
+                    match op {
+                        TokenKind::Plus => TokenKind::PlusEq,
+                        TokenKind::Minus => TokenKind::MinusEq,
+                        TokenKind::Star => TokenKind::StarEq,
+                        TokenKind::Slash => TokenKind::SlashEq,
+                        _ => unreachable!(),
+                    }
                 } else {
-                    TokenKind::Plus
+                    op
                 }
             }
 
-            b'-' => {
-                if self.consume(b'=') {
-                    TokenKind::MinusEq
-                } else {
-                    TokenKind::Minus
-                }
-            }
+            // comparison and their compounds
+            b'<' | b'>' => {
+                let op = match byte {
+                    b'<' => TokenKind::Lt,
+                    b'>' => TokenKind::Gt,
+                    _ => unreachable!(),
+                };
 
-            b'*' => {
                 if self.consume(b'=') {
-                    TokenKind::StarEq
+                    match op {
+                        TokenKind::Lt => TokenKind::LtEq,
+                        TokenKind::Gt => TokenKind::GtEq,
+                        _ => unreachable!(),
+                    }
                 } else {
-                    TokenKind::Star
-                }
-            }
-
-            b'/' => {
-                if self.consume(b'=') {
-                    TokenKind::SlashEq
-                } else {
-                    TokenKind::Slash
+                    op
                 }
             }
 
@@ -123,36 +132,23 @@ impl Lexer<'_> {
                 }
             }
 
-            b'<' => {
-                if self.consume(b'=') {
-                    TokenKind::LtEq
-                } else {
-                    TokenKind::Lt
-                }
-            }
-
-            b'>' => {
-                if self.consume(b'=') {
-                    TokenKind::GtEq
-                } else {
-                    TokenKind::Gt
-                }
-            }
-
-            b'(' => TokenKind::LParen,
-            b')' => TokenKind::RParen,
-            b'{' => TokenKind::LBrace,
-            b'}' => TokenKind::RBrace,
-            b'[' => TokenKind::LBracket,
-            b']' => TokenKind::RBracket,
+            // delimiters
+            b'(' | b')' | b'{' | b'}' | b'[' | b']' => match byte {
+                b'(' => TokenKind::LParen,
+                b')' => TokenKind::RParen,
+                b'{' => TokenKind::LBrace,
+                b'}' => TokenKind::RBrace,
+                b'[' => TokenKind::LBracket,
+                b']' => TokenKind::RBracket,
+                _ => unreachable!(),
+            },
 
             b',' => TokenKind::Comma,
             b'.' => TokenKind::Dot,
             b':' => TokenKind::Colon,
             b';' => TokenKind::Semicolon,
 
-            // TODO: handle error
-            _ => return Token::new(TokenKind::Error, self.span_from(start)),
+            _ => TokenKind::Unknown,
         };
 
         Token::new(kind, self.span_from(start))

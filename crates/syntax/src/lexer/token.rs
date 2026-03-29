@@ -10,11 +10,10 @@ pub enum TokenKind {
     Float,   // 1.0, 1e10
 
     // identifiers
-    Identifier, // foo
+    Identifier, // foo_bar
 
     Let,
     If, Else, Loop, Break,
-
 
     // operators
     Plus, Minus, Star, Slash,
@@ -26,7 +25,7 @@ pub enum TokenKind {
     LParen, RParen, LBrace, RBrace, LBracket, RBracket,
     Comma, Dot, Colon, Semicolon,
 
-    EndOfFile, Error
+    EndOfFile, Unknown
 }
 
 impl TokenKind {
