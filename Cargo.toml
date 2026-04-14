@@ -12,3 +12,4 @@ repository = "https://github.com/ratplier/stock"
 stock_source = { path = "crates/source" }
 stock_syntax = { path = "crates/syntax" }
 stock_ast = { path = "crates/ast" }
+stock_diagnostics = { path = "crates/diagnostics" }

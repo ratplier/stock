@@ -153,6 +153,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "stock_diagnostics"
+version = "0.1.0"
+dependencies = [
+ "stock_source",
+]
+
+[[package]]
 name = "stock_source"
 version = "0.1.0"
 dependencies = [
