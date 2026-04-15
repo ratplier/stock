@@ -17,9 +17,8 @@ pub enum TokenKind {
 
     // operators
     Plus, Minus, Star, Slash,
-    PlusEq, MinusEq, StarEq, SlashEq,
-    Eq, EqEq, BangEq, Bang,
-    Lt, Gt, LtEq, GtEq,
+    Eq, EqEq, Bang, BangEq,
+    Lt, Gt, Le, Ge,
 
     // delimiters
     LParen, RParen, LBrace, RBrace, LBracket, RBracket,

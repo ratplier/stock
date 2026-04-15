@@ -17,21 +17,20 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace();
 
         let start = self.cursor;
-        let byte = match self.peek() {
-            Some(byte) => byte,
-            None => return Token::eof(self.span_from(start)),
-        };
+        match self.peek() {
+            None => Token::eof(self.span_from(start)),
 
-        match byte {
-            byte if byte.is_ascii_digit() => self.lex_number(interner, start),
-            byte if byte.is_ascii_alphanumeric() || byte == b'_' => {
+            Some(byte) if byte.is_ascii_digit() => self.lex_number(interner, start),
+            Some(byte) if byte.is_ascii_alphanumeric() || byte == b'_' => {
                 self.lex_identifier(interner, start)
             }
-            byte if byte.is_ascii_punctuation() => self.lex_symbol(byte, start),
+            Some(byte) if byte.is_ascii_punctuation() => self.lex_symbol(byte, start),
 
             _ => {
                 self.advance();
-                Token::new(TokenKind::Unknown, self.span_from(start))
+
+                let span = self.span_from(start);
+                Token::new(TokenKind::Unknown, span)
             }
         }
     }
@@ -73,75 +72,29 @@ impl Lexer<'_> {
     fn lex_symbol(&mut self, byte: u8, start: usize) -> Token {
         self.advance();
 
+        #[rustfmt::skip]
         let kind = match byte {
-            // operators and their compounds
-            b'+' | b'-' | b'*' | b'/' => {
-                let op = match byte {
-                    b'+' => TokenKind::Plus,
-                    b'-' => TokenKind::Minus,
-                    b'*' => TokenKind::Star,
-                    b'/' => TokenKind::Slash,
-                    _ => unreachable!(),
-                };
+            // arithmetic
+            b'+' => TokenKind::Plus,
+            b'-' => TokenKind::Minus,
+            b'*' => TokenKind::Star,
+            b'/' => TokenKind::Slash,
 
-                if self.consume(b'=') {
-                    match op {
-                        TokenKind::Plus => TokenKind::PlusEq,
-                        TokenKind::Minus => TokenKind::MinusEq,
-                        TokenKind::Star => TokenKind::StarEq,
-                        TokenKind::Slash => TokenKind::SlashEq,
-                        _ => unreachable!(),
-                    }
-                } else {
-                    op
-                }
-            }
-
-            // comparison and their compounds
-            b'<' | b'>' => {
-                let op = match byte {
-                    b'<' => TokenKind::Lt,
-                    b'>' => TokenKind::Gt,
-                    _ => unreachable!(),
-                };
-
-                if self.consume(b'=') {
-                    match op {
-                        TokenKind::Lt => TokenKind::LtEq,
-                        TokenKind::Gt => TokenKind::GtEq,
-                        _ => unreachable!(),
-                    }
-                } else {
-                    op
-                }
-            }
-
-            b'=' => {
-                if self.consume(b'=') {
-                    TokenKind::EqEq
-                } else {
-                    TokenKind::Eq
-                }
-            }
-
-            b'!' => {
-                if self.consume(b'=') {
-                    TokenKind::BangEq
-                } else {
-                    TokenKind::Bang
-                }
-            }
+            // comparison
+            b'<' => if self.consume(b'=') { TokenKind::Le } else { TokenKind::Lt },
+            b'>' => if self.consume(b'=') { TokenKind::Ge } else { TokenKind::Gt },
 
             // delimiters
-            b'(' | b')' | b'{' | b'}' | b'[' | b']' => match byte {
-                b'(' => TokenKind::LParen,
-                b')' => TokenKind::RParen,
-                b'{' => TokenKind::LBrace,
-                b'}' => TokenKind::RBrace,
-                b'[' => TokenKind::LBracket,
-                b']' => TokenKind::RBracket,
-                _ => unreachable!(),
-            },
+            b'(' => TokenKind::LParen,
+            b')' => TokenKind::RParen,
+            b'{' => TokenKind::LBrace,
+            b'}' => TokenKind::RBrace,
+            b'[' => TokenKind::LBracket,
+            b']' => TokenKind::RBracket,
+
+            // other
+            b'=' => if self.consume(b'=') { TokenKind::EqEq } else { TokenKind::Eq },
+            b'!' => if self.consume(b'=') { TokenKind::BangEq } else { TokenKind::Bang },
 
             b',' => TokenKind::Comma,
             b'.' => TokenKind::Dot,
@@ -167,10 +120,10 @@ impl Lexer<'_> {
                 self.advance();
 
                 // handle sign (1e-1, 1e+1)
-                if let Some(byte) = self.peek() {
-                    if byte == b'+' || byte == b'-' {
-                        self.advance();
-                    }
+                if let Some(byte) = self.peek()
+                    && (byte == b'+' || byte == b'-')
+                {
+                    self.advance();
                 }
             }
 
@@ -255,16 +208,14 @@ mod tests {
 
     #[test]
     fn test_lex_compound_symbols() {
-        let tokens = lex_all("+= -= *= /= == != <= >= ");
+        // TODO: implement compounds (+=, -=, *=, /=)
+
+        let tokens = lex_all("== != <= >= ");
         let expected = vec![
-            TokenKind::PlusEq,
-            TokenKind::MinusEq,
-            TokenKind::StarEq,
-            TokenKind::SlashEq,
             TokenKind::EqEq,
             TokenKind::BangEq,
-            TokenKind::LtEq,
-            TokenKind::GtEq,
+            TokenKind::Le,
+            TokenKind::Ge,
         ];
 
         assert_eq!(tokens.len(), expected.len());
