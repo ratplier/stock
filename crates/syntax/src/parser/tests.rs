@@ -3,17 +3,19 @@ use crate::{
     parser::Parser,
 };
 use stock_ast::{AstArena, AstExpr, AstStmt, BinaryOp, ExprId, StmtId, UnaryOp};
+use stock_diagnostics::DiagnosticSink;
 use stock_source::{Interner, Symbol};
 
 fn lex(source: &str) -> (Vec<Token>, Interner) {
     let mut interner = Interner::new();
+    let mut sink = DiagnosticSink::new();
 
     let mut lexer = Lexer::new(source.as_bytes());
     let tokens = {
         let mut tokens = Vec::new();
 
         loop {
-            let token = lexer.next_token(&mut interner);
+            let token = lexer.next_token(&mut interner, &mut sink);
             tokens.push(token);
 
             if token.kind.is_eof() {

@@ -1,6 +1,6 @@
 mod diagnostic;
 mod emitters;
-mod error;
+pub mod error;
 mod label;
 mod sink;
 

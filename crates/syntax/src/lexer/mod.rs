@@ -1,5 +1,6 @@
 mod token;
 
+use stock_diagnostics::DiagnosticSink;
 use stock_source::{Interner, Span};
 pub use token::{Token, TokenKind};
 
@@ -13,23 +14,25 @@ impl<'a> Lexer<'a> {
         Self { source, cursor: 0 }
     }
 
-    pub fn next_token(&mut self, interner: &mut Interner) -> Token {
+    pub fn next_token(&mut self, interner: &mut Interner, sink: &mut DiagnosticSink) -> Token {
         self.skip_whitespace();
 
         let start = self.cursor;
         match self.peek() {
             None => Token::eof(self.span_from(start)),
 
-            Some(byte) if byte.is_ascii_digit() => self.lex_number(interner, start),
-            Some(byte) if byte.is_ascii_alphanumeric() || byte == b'_' => {
+            Some(byte) if byte.is_ascii_digit() => self.lex_number(interner, sink, start),
+            Some(byte) if byte.is_ascii_alphabetic() || byte == b'_' => {
                 self.lex_identifier(interner, start)
             }
             Some(byte) if byte.is_ascii_punctuation() => self.lex_symbol(byte, start),
 
-            _ => {
+            Some(byte) => {
                 self.advance();
 
                 let span = self.span_from(start);
+                sink.unknown_byte(byte, span);
+
                 Token::new(TokenKind::Unknown, span)
             }
         }
@@ -107,33 +110,74 @@ impl Lexer<'_> {
         Token::new(kind, self.span_from(start))
     }
 
-    fn lex_number(&mut self, interner: &mut Interner, start: usize) -> Token {
+    fn consume_digits(&mut self) {
+        while self
+            .peek()
+            .is_some_and(|byte| byte.is_ascii_digit() || byte == b'_')
+        {
+            self.advance();
+        }
+    }
+
+    fn lex_number(
+        &mut self,
+        interner: &mut Interner,
+        sink: &mut DiagnosticSink,
+        start: usize,
+    ) -> Token {
         let mut kind = TokenKind::Integer;
 
-        while let Some(byte) = self.peek() {
-            // check for float (1.0, 1.3e-2)
-            if byte == b'.' {
-                kind = TokenKind::Float;
-                self.advance();
-            } else if byte == b'e' || byte == b'E' {
-                kind = TokenKind::Float;
-                self.advance();
+        // TODO: support other bases (hex, binary)
+        // also maybe add NumberInfo to define base, sign, etc
+        if self.consume(b'0') {}
 
-                // handle sign (1e-1, 1e+1)
-                if let Some(byte) = self.peek()
-                    && (byte == b'+' || byte == b'-')
-                {
-                    self.advance();
-                }
+        self.consume_digits();
+
+        // base decimal (1.3)
+        if self.consume(b'.') {
+            kind = TokenKind::Float;
+
+            let decimal_start = self.cursor;
+            self.consume_digits();
+
+            if self.cursor == decimal_start {
+                sink.trailing_decimal(self.span_from(start));
+            }
+        }
+
+        // exponent, uses previous decimal (1.3) as base (1.3e-4)
+        if self.consume(b'e') || self.consume(b'E') {
+            kind = TokenKind::Float;
+
+            // consume 1e+, 1e-
+            if self.peek() == Some(b'+') || self.peek() == Some(b'-') {
+                self.advance();
             }
 
-            if let Some(byte) = self.peek()
-                && (byte.is_ascii_digit() || byte == b'_')
+            let exponent_start = self.cursor;
+            self.consume_digits();
+
+            if self.cursor == exponent_start {
+                sink.trailing_decimal(self.span_from(start));
+            }
+        }
+
+        // check for invalid suffix (123abc, 1_)
+        if self
+            .peek()
+            .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_')
+        {
+            while self
+                .peek()
+                .is_some_and(|b| b.is_ascii_alphanumeric() || b == b'_')
             {
                 self.advance();
-            } else {
-                break;
             }
+
+            let span = self.span_from(start);
+            // TODO: report invalid number suffix (_, abc)
+
+            return Token::new(TokenKind::Unknown, span);
         }
 
         let span = self.span_from(start);
@@ -154,6 +198,7 @@ impl Lexer<'_> {
         let span = self.span_from(start);
         let identifier = &self.source[start..self.cursor];
 
+        // TODO: use preset symbols for keywords
         if let Some(kind) = TokenKind::keyword_from_str(identifier) {
             return Token::new(kind, span);
         }
@@ -170,10 +215,11 @@ mod tests {
     fn lex_all(source: &str) -> Vec<Token> {
         let mut lexer = Lexer::new(source.as_bytes());
         let mut interner = Interner::new();
+        let mut sink = DiagnosticSink::new();
 
         let mut tokens = Vec::new();
         loop {
-            let token = lexer.next_token(&mut interner);
+            let token = lexer.next_token(&mut interner, &mut sink);
             if token.kind == TokenKind::EndOfFile {
                 break;
             }
