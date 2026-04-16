@@ -8,4 +8,3 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
-lasso = { version = "^0.7", features = ["multi-threaded"] }
