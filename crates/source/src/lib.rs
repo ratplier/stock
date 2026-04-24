@@ -1,9 +1,9 @@
-mod span;
-mod sourcemap;
 mod interner;
+mod sourcemap;
+mod span;
 
 pub use {
-    span::Span,
-    sourcemap::{SourceId, SourceMap},
     interner::{Interner, Symbol},
+    sourcemap::{SourceId, SourceMap},
+    span::Span,
 };

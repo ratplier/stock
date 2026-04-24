@@ -76,14 +76,15 @@ impl TokenKind {
         matches!(self, TokenKind::EndOfFile)
     }
 
-    pub fn keyword_from_str(keyword: &[u8]) -> Option<TokenKind> {
-        match keyword {
-            b"let" => Some(TokenKind::Let),
-            b"if" => Some(TokenKind::If),
-            b"else" => Some(TokenKind::Else),
-            b"loop" => Some(TokenKind::Loop),
-            b"break" => Some(TokenKind::Break),
-            _ => None,
+    pub fn from_symbol(symbol: Symbol) -> Self {
+        match symbol {
+            Symbol::LET => TokenKind::Let,
+            Symbol::IF => TokenKind::If,
+            Symbol::ELSE => TokenKind::Else,
+            Symbol::LOOP => TokenKind::Loop,
+            Symbol::BREAK => TokenKind::Break,
+
+            _ => unreachable!("symbol should be a keyword"),
         }
     }
 }

@@ -196,14 +196,12 @@ impl Lexer<'_> {
         }
 
         let span = self.span_from(start);
-        let identifier = &self.source[start..self.cursor];
+        let symbol = interner.intern(&self.source[start..self.cursor]);
 
-        // TODO: use preset symbols for keywords
-        if let Some(kind) = TokenKind::keyword_from_str(identifier) {
-            return Token::new(kind, span);
+        if symbol.is_keyword() {
+            return Token::new(TokenKind::from_symbol(symbol), span);
         }
 
-        let symbol = interner.intern(identifier);
         Token::with_symbol(TokenKind::Identifier, symbol, span)
     }
 }
