@@ -129,7 +129,9 @@ impl Lexer<'_> {
 
         // TODO: support other bases (hex, binary)
         // also maybe add NumberInfo to define base, sign, etc
-        if self.consume(b'0') {}
+        if self.consume(b'0') && self.peek().is_some_and(|c| c.is_ascii_alphabetic()) {
+            todo!("other bases are not supported yet");
+        }
 
         self.consume_digits();
 
@@ -175,7 +177,7 @@ impl Lexer<'_> {
             }
 
             let span = self.span_from(start);
-            // TODO: report invalid number suffix (_, abc)
+            sink.invalid_suffix(span);
 
             return Token::new(TokenKind::Unknown, span);
         }
@@ -252,8 +254,6 @@ mod tests {
 
     #[test]
     fn test_lex_compound_symbols() {
-        // TODO: implement compounds (+=, -=, *=, /=)
-
         let tokens = lex_all("== != <= >= ");
         let expected = vec![
             TokenKind::EqEq,

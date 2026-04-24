@@ -8,4 +8,8 @@ pub enum LexError {
 
     /// a trailing decimal/exponent (1e, 1.)
     TrailingDecimal,
+
+    /// invalid suffix (1abc, 1_)
+    InvalidSuffix,
+}
 }
