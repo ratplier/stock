@@ -1,4 +1,4 @@
-use crate::id::ExprId;
+use crate::id::{ExprId, StmtId};
 use stock_source::Symbol;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -36,8 +36,15 @@ pub enum AstExpr {
 
 #[derive(Debug)]
 pub enum AstStmt {
-    Let { name: Symbol, value: ExprId },
-    Block(Vec<AstStmt>, Option<ExprId>),
+    Let {
+        name: Symbol,
+        value: ExprId,
+    },
+
+    Block {
+        statements: Vec<StmtId>,
+        expr: Option<ExprId>,
+    },
 }
 
 #[derive(Debug)]

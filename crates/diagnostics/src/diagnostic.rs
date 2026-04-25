@@ -1,4 +1,4 @@
-use crate::{Label, error::LexError};
+use crate::{Label, error::LexError, error::ParseError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
@@ -10,6 +10,7 @@ pub enum Severity {
 #[derive(Debug, Clone)]
 pub enum DiagnosticCode {
     LexError(LexError),
+    ParseError(ParseError),
 }
 
 #[derive(Debug, Clone)]

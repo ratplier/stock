@@ -1,3 +1,5 @@
+use stock_source::TokenKind;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LexError {
     /// a byte that doesnt match any known token
@@ -12,4 +14,17 @@ pub enum LexError {
     /// invalid suffix (1abc, 1_)
     InvalidSuffix,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseError {
+    ExpectedToken { expected: TokenKind, got: TokenKind },
+    UnexpectedToken { token: TokenKind },
+
+    // expression parsing
+    ExpectedExpression,
+    ExpectedBinaryOp,
+
+    // statement parsing
+    ExpectedStatement,
+    ExpectedSemicolon,
 }

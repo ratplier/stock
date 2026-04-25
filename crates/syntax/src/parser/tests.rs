@@ -1,50 +1,35 @@
-use crate::{
-    lexer::{Lexer, Token},
-    parser::Parser,
-};
+use crate::{lexer::Lexer, parser::Parser};
 use stock_ast::{AstArena, AstExpr, AstStmt, BinaryOp, ExprId, StmtId, UnaryOp};
 use stock_diagnostics::DiagnosticSink;
 use stock_source::{Interner, Symbol};
 
-fn lex(source: &str) -> (Vec<Token>, Interner) {
+fn parse<U, T: Fn(&mut Parser<'_>) -> U>(
+    source: &str,
+    callback: T,
+) -> (U, AstArena, Interner, DiagnosticSink) {
     let mut interner = Interner::new();
     let mut sink = DiagnosticSink::new();
 
-    let mut lexer = Lexer::new(source.as_bytes());
-    let tokens = {
-        let mut tokens = Vec::new();
+    let lexer = Lexer::new(source.as_bytes());
+    let mut parser = Parser::new(lexer, &mut interner, &mut sink);
 
-        loop {
-            let token = lexer.next_token(&mut interner, &mut sink);
-            tokens.push(token);
+    let result = callback(&mut parser);
 
-            if token.kind.is_eof() {
-                break;
-            }
-        }
+    assert!(parser.sink.error_count() == 0, "{:?}", sink.drain());
 
-        tokens
-    };
-
-    (tokens, interner)
+    (result, parser.ast, interner, sink)
 }
 
 fn parse_expr(source: &str) -> (ExprId, AstArena, Interner) {
-    let (tokens, interner) = lex(source);
+    let (expr, ast, interner, _) = parse(source, |parser| parser.parse_expr());
 
-    let mut parser = Parser::new(&tokens);
-    let expr = parser.parse_infix_expr(0);
-
-    (expr, parser.ast, interner)
+    (expr.expect("expected expression"), ast, interner)
 }
 
 fn parse_stmt(source: &str) -> (StmtId, AstArena, Interner) {
-    let (tokens, interner) = lex(source);
+    let (stmt, ast, interner, _) = parse(source, |parser| parser.parse_stmt());
 
-    let mut parser = Parser::new(&tokens);
-    let stmt = parser.parse_stmt();
-
-    (stmt, parser.ast, interner)
+    (stmt.expect("expected statement"), ast, interner)
 }
 
 fn assert_symbol(interner: &Interner, symbol: &Symbol, expected: &str) {

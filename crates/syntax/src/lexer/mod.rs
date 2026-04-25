@@ -1,9 +1,7 @@
-mod token;
-
 use stock_diagnostics::DiagnosticSink;
-use stock_source::{Interner, Span};
-pub use token::{Token, TokenKind};
+use stock_source::{Interner, Span, Token, TokenKind};
 
+#[derive(Debug)]
 pub struct Lexer<'a> {
     source: &'a [u8],
     cursor: usize,
