@@ -91,10 +91,18 @@ impl AstArena {
     pub fn unary(&mut self, op: UnaryOp, operand: ExprId, span: Span) -> ExprId {
         self.add_expr(AstExpr::Unary { op, operand }, span)
     }
+
+    pub fn call(&mut self, callee: ExprId, args: Vec<ExprId>, span: Span) -> ExprId {
+        self.add_expr(AstExpr::Call { callee, args }, span)
+    }
 }
 
 impl AstArena {
     pub fn let_stmt(&mut self, name: Symbol, value: ExprId, span: Span) -> StmtId {
         self.add_stmt(AstStmt::Let { name, value }, span)
+    }
+
+    pub fn expr_stmt(&mut self, expr: ExprId, span: Span) -> StmtId {
+        self.add_stmt(AstStmt::Expr(expr), span)
     }
 }

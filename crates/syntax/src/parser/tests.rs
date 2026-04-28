@@ -50,12 +50,42 @@ macro_rules! assert_branch {
 }
 
 #[test]
-fn test_integer_literal() {
+fn test_literal() {
     let (expr, ast, interner) = parse_expr("42");
     let node = ast.get_expr(expr);
 
+    // integer
     assert_branch!(node, AstExpr::Integer(symbol) => {
         assert_symbol(&interner, symbol, "42");
+    });
+
+    let (expr, ast, interner) = parse_expr("abc");
+
+    // boolean
+    assert_branch!(ast.get_expr(expr), AstExpr::Identifier(symbol) => {
+        assert_symbol(&interner, symbol, "abc");
+    });
+}
+
+#[test]
+fn test_fn_call() {
+    let (expr, ast, interner) = parse_expr("f(1, 2)");
+    let node = ast.get_expr(expr);
+
+    assert_branch!(node, AstExpr::Call { callee, args } => {
+        assert_branch!(ast.get_expr(*callee), AstExpr::Identifier(symbol) => {
+            assert_symbol(&interner, symbol, "f");
+        });
+
+        assert_eq!(args.len(), 2);
+
+        assert_branch!(ast.get_expr(args[0]), AstExpr::Integer(symbol) => {
+            assert_symbol(&interner, symbol, "1");
+        });
+
+        assert_branch!(ast.get_expr(args[1]), AstExpr::Integer(symbol) => {
+            assert_symbol(&interner, symbol, "2");
+        });
     });
 }
 

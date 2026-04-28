@@ -123,13 +123,6 @@ mod token_kind {
         }
     }
 
-    pub fn prefix_binding_power(token: TokenKind) -> Option<u8> {
-        match token {
-            TokenKind::Minus | TokenKind::Bang => Some(5),
-            _ => None,
-        }
-    }
-
     pub fn to_binary_op(token: TokenKind) -> BinaryOp {
         match token {
             TokenKind::Plus => BinaryOp::Add,
@@ -148,24 +141,63 @@ mod token_kind {
         }
     }
 
-    pub fn is_binary_op(token: TokenKind) -> bool {
-        matches!(
-            token,
-            TokenKind::Plus | TokenKind::Minus | TokenKind::Star | TokenKind::Slash
-        )
-    }
-
     pub fn is_unary_op(token: TokenKind) -> bool {
         matches!(token, TokenKind::Minus | TokenKind::Bang)
     }
 }
 
+// parsing helpers
 impl Parser<'_> {
-    fn eat_block(&mut self) -> Option<Vec<StmtId>> {
-        todo!("parse block expr + statements")
+    fn expect_semicolon(&mut self) -> Option<Token> {
+        let token = self.expect(TokenKind::Semicolon);
+
+        if token.is_none() {
+            let position = self.position();
+            let span = Span::from_position(position);
+            self.sink.expected_semicolon(span);
+
+            self.synchronize(RECOVERY_TOKENS);
+        }
+
+        token
+    }
+
+    fn parse_call(&mut self, callee: ExprId) -> Option<ExprId> {
+        let start = self.ast.get_expr_span(callee);
+        self.expect(TokenKind::LParen)?;
+
+        let mut args = Vec::new();
+
+        while !self.at(TokenKind::RParen) {
+            if self.peek_kind().is_eof() {
+                // TODO: emit unclosed paren
+                return None;
+            }
+
+            if let Some(arg) = self.parse_expr() {
+                args.push(arg);
+            } else {
+                // TODO: emit expected expr error
+                return None;
+            }
+
+            if self.at(TokenKind::RParen) {
+                break;
+            }
+
+            if self.expect(TokenKind::Comma).is_none() {
+                break;
+            }
+        }
+
+        let closing_span = self.expect(TokenKind::RParen)?.span;
+        let span = Span::merge(start, closing_span);
+
+        Some(self.ast.call(callee, args, span))
     }
 }
 
+// expression parsing
 impl Parser<'_> {
     fn parse_expr(&mut self) -> Option<ExprId> {
         self.parse_infix_expr(0)
@@ -192,12 +224,7 @@ impl Parser<'_> {
                 self.advance();
 
                 let rhs = self.parse_infix_expr(r_bp)?;
-                let op = if token_kind::is_binary_op(kind) {
-                    token_kind::to_binary_op(kind)
-                } else {
-                    self.sink.expected_binary_op(span);
-                    return None;
-                };
+                let op = token_kind::to_binary_op(kind);
 
                 let left_span = self.ast.get_expr_span(lhs);
                 let right_span = self.ast.get_expr_span(rhs);
@@ -214,59 +241,75 @@ impl Parser<'_> {
     }
 
     fn parse_prefix_expr(&mut self) -> Option<ExprId> {
-        let token = self.advance();
+        let token = self.peek();
+        let kind = token.kind;
+
+        if token_kind::is_unary_op(kind) {
+            self.advance();
+
+            let rhs = self.parse_prefix_expr()?;
+
+            let op = token_kind::to_unary_op(kind);
+            let right_span = self.ast.get_expr_span(rhs);
+
+            let span = Span::merge(token.span, right_span);
+            return Some(self.ast.unary(op, rhs, span));
+        }
+
+        self.parse_postfix_expr()
+    }
+
+    fn parse_postfix_expr(&mut self) -> Option<ExprId> {
+        let mut expr = self.parse_primary()?;
+
+        loop {
+            match self.peek_kind() {
+                TokenKind::LParen => expr = self.parse_call(expr)?,
+
+                _ => break, // not a postfix operator
+            }
+        }
+
+        Some(expr)
+    }
+
+    fn parse_primary(&mut self) -> Option<ExprId> {
+        let token = self.peek();
 
         if token.has_symbol() {
+            self.advance();
+
             let kind = token.kind;
             let symbol = token.symbol;
 
-            return Some(match kind {
+            let ast_node = match kind {
                 TokenKind::Integer => self.ast.integer(symbol, token.span),
                 TokenKind::Float => self.ast.float(symbol, token.span),
                 TokenKind::Identifier => self.ast.identifier(symbol, token.span),
-
                 _ => unreachable!("token should have a symbol"),
-            });
+            };
+
+            return Some(ast_node);
         }
 
-        match token.kind {
-            kind if token_kind::is_unary_op(kind) => {
-                let r_bp = token_kind::prefix_binding_power(kind)
-                    .expect("tokenkind should have a prefix binding");
-
-                let rhs = self.parse_infix_expr(r_bp)?;
-
-                let op = token_kind::to_unary_op(kind);
-                let right_span = self.ast.get_expr_span(rhs);
-                let span = Span::merge(token.span, right_span);
-
-                Some(self.ast.unary(op, rhs, span))
-            }
-
-            _ => {
-                self.sink.expected_expression(token.span);
-                None
-            }
-        }
+        self.sink.expected_expression(token.span);
+        None
     }
 }
 
+// statement parsing
 impl Parser<'_> {
     fn parse_stmt(&mut self) -> Option<StmtId> {
         match self.peek_kind() {
             TokenKind::Let => self.parse_let_stmt(),
-            _ => {
-                self.sink.expected_statement(self.peek_span());
-                None
-            }
+
+            _ => self.parse_expr_stmt(),
         }
     }
 
     fn parse_let_stmt(&mut self) -> Option<StmtId> {
         let start = self.peek_span();
         self.expect(TokenKind::Let)?;
-
-        println!("{:?}", self);
 
         let name_token = self.expect(TokenKind::Identifier)?;
         let name = name_token.symbol;
@@ -276,15 +319,17 @@ impl Parser<'_> {
         self.expect(TokenKind::Eq)?;
 
         let value = self.parse_expr()?;
-        if self.expect(TokenKind::Semicolon).is_none() {
-            let position = self.position();
-            let span = Span::from_position(position);
-            self.sink.expected_semicolon(span);
+        let semicolon = self.expect_semicolon()?;
 
-            self.synchronize(RECOVERY_TOKENS);
-        }
-
-        let span = Span::merge(start, self.ast.get_expr_span(value));
+        let span = Span::merge(start, semicolon.span);
         Some(self.ast.let_stmt(name, value, span))
+    }
+
+    fn parse_expr_stmt(&mut self) -> Option<StmtId> {
+        let expr = self.parse_expr()?;
+        let semicolon = self.expect_semicolon()?;
+
+        let span = Span::merge(self.ast.get_expr_span(expr), semicolon.span);
+        Some(self.ast.expr_stmt(expr, span))
     }
 }
