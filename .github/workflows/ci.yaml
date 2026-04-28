@@ -2,23 +2,32 @@ name: ci
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["**"]
   pull_request:
+    branches: ["**"]
 
 jobs:
-  rustfmt:
+  # run formatting first to fail fast
+  format:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      
-      - name: check formatting
-        run: cargo fmt --all -- --check
 
-  rustclippy:
+      - name: install just
+        uses: extractions/setup-just@v2
+
+      - name: check formatting
+        run: just format
+
+  # lints
+  lint:
+    needs: format # only run if formatting passes
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -26,15 +35,46 @@ jobs:
           components: clippy
       - uses: swatinem/rust-cache@v2
 
-      - name: check clippy
-        run: cargo clippy --all -- -D warnings
+      - name: install nextest
+        uses: taiki-e/install-action@nextest
 
-  rusttest:
+      - name: install just
+        uses: extractions/setup-just@v2
+
+      - name: check using clippy
+        run: just lint
+
+  # tests
+  test:
+    needs: format # only run if formatting passes
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: swatinem/rust-cache@v2
 
+      - name: install just
+        uses: extractions/setup-just@v2
+        
       - name: run tests
-        run: cargo test --all
+        run: just test
+
+  # build, make sure it compiles for release
+  build:
+    needs: [lint, test] # only run if clippy and tests pass
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+
+      - name: install nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: install just
+        uses: extractions/setup-just@v2
+
+      - name: build release
+        run: just build

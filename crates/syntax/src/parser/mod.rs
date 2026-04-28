@@ -69,11 +69,6 @@ impl Parser<'_> {
         self.peek().span
     }
 
-    #[inline]
-    fn peek2(&self) -> Token {
-        self.buffer[1]
-    }
-
     fn advance(&mut self) -> Token {
         let token = self.buffer[0];
         self.buffer[0] = self.buffer[1];
@@ -208,9 +203,7 @@ impl Parser<'_> {
 
         loop {
             let token = self.peek();
-
             let kind = token.kind;
-            let span = token.span;
 
             if kind.is_eof() {
                 break;
@@ -262,6 +255,7 @@ impl Parser<'_> {
     fn parse_postfix_expr(&mut self) -> Option<ExprId> {
         let mut expr = self.parse_primary()?;
 
+        #[allow(clippy::while_let_loop)]
         loop {
             match self.peek_kind() {
                 TokenKind::LParen => expr = self.parse_call(expr)?,

@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn test_lex_basic_symbols() {
         let tokens = lex_all("+-*/!<> =");
-        let expected = vec![
+        let expected = [
             TokenKind::Plus,
             TokenKind::Minus,
             TokenKind::Star,
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn test_lex_compound_symbols() {
         let tokens = lex_all("== != <= >= ");
-        let expected = vec![
+        let expected = [
             TokenKind::EqEq,
             TokenKind::BangEq,
             TokenKind::Le,
