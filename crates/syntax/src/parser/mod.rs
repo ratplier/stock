@@ -16,8 +16,7 @@ pub struct Parser<'a> {
 
     interner: &'a mut Interner,
     sink: &'a mut DiagnosticSink,
-
-    ast: AstArena,
+    ast: &'a mut AstArena,
 }
 
 impl<'a> Parser<'a> {
@@ -25,6 +24,7 @@ impl<'a> Parser<'a> {
         mut lexer: Lexer<'a>,
         interner: &'a mut Interner,
         sink: &'a mut DiagnosticSink,
+        ast: &'a mut AstArena,
     ) -> Self {
         let t0 = lexer.next_token(interner, sink);
         let t1 = lexer.next_token(interner, sink);
@@ -34,7 +34,7 @@ impl<'a> Parser<'a> {
             buffer: [t0, t1],
             interner,
             sink,
-            ast: AstArena::new(),
+            ast,
         }
     }
 
