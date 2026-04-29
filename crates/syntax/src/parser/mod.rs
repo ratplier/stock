@@ -80,6 +80,15 @@ impl Parser<'_> {
         self.peek_kind() == kind
     }
 
+    fn consume(&mut self, kind: TokenKind) -> bool {
+        if self.at(kind) {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
     fn expect(&mut self, kind: TokenKind) -> Option<Token> {
         if self.at(kind) {
             Some(self.advance())
@@ -163,12 +172,7 @@ impl Parser<'_> {
 
         let mut args = Vec::new();
 
-        while !self.at(TokenKind::RParen) {
-            if self.peek_kind().is_eof() {
-                // TODO: emit unclosed paren
-                return None;
-            }
-
+        while !self.at(TokenKind::RParen) && !self.at(TokenKind::EndOfFile) {
             if let Some(arg) = self.parse_expr() {
                 args.push(arg);
             } else {
@@ -176,11 +180,7 @@ impl Parser<'_> {
                 return None;
             }
 
-            if self.at(TokenKind::RParen) {
-                break;
-            }
-
-            if self.expect(TokenKind::Comma).is_none() {
+            if self.consume(TokenKind::Comma) {
                 break;
             }
         }
@@ -284,6 +284,13 @@ impl Parser<'_> {
             };
 
             return Some(ast_node);
+        }
+
+        if self.consume(TokenKind::LParen) {
+            let expr = self.parse_expr()?;
+            self.expect(TokenKind::RParen)?;
+
+            return Some(expr);
         }
 
         self.sink.expected_expression(token.span);
