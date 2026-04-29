@@ -7,7 +7,7 @@ use stock_source::{Interner, Span, Token, TokenKind};
 use crate::lexer::Lexer;
 use stock_ast::{AstArena, BinaryOp, ExprId, StmtId, UnaryOp};
 
-const RECOVERY_TOKENS: &[TokenKind] = &[TokenKind::Let, TokenKind::Semicolon];
+const RECOVERY_TOKENS: &[TokenKind] = &[TokenKind::Let];
 
 #[derive(Debug)]
 pub struct Parser<'a> {

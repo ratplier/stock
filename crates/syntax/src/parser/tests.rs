@@ -1,47 +1,79 @@
 use crate::{lexer::Lexer, parser::Parser};
+
 use stock_ast::{AstArena, AstExpr, AstStmt, BinaryOp, ExprId, StmtId, UnaryOp};
 use stock_diagnostics::DiagnosticSink;
 use stock_source::{Interner, Symbol};
 
-fn parse<U, T: Fn(&mut Parser<'_>) -> U>(
-    source: &str,
-    callback: T,
-) -> (U, AstArena, Interner, DiagnosticSink) {
-    let mut interner = Interner::new();
-    let mut sink = DiagnosticSink::new();
-
-    let lexer = Lexer::new(source.as_bytes());
-    let mut parser = Parser::new(lexer, &mut interner, &mut sink);
-
-    let result = callback(&mut parser);
-
-    assert!(parser.sink.error_count() == 0, "{:?}", sink.drain());
-
-    (result, parser.ast, interner, sink)
+struct TestEnv {
+    arena: AstArena,
+    interner: Interner,
+    sink: DiagnosticSink,
 }
 
-fn parse_expr(source: &str) -> (ExprId, AstArena, Interner) {
-    let (expr, ast, interner, _) = parse(source, |parser| parser.parse_expr());
+impl TestEnv {
+    fn new() -> Self {
+        Self {
+            arena: AstArena::new(),
+            interner: Interner::new(),
+            sink: DiagnosticSink::new(),
+        }
+    }
 
-    (expr.expect("expected expression"), ast, interner)
+    fn parse_expr(&mut self, source: &str) -> ExprId {
+        let lexer = Lexer::new(source.as_bytes());
+        let mut parser = Parser::new(lexer, &mut self.interner, &mut self.sink, &mut self.arena);
+
+        let expr = parser.parse_expr();
+        if expr.is_none() || self.sink.error_count() > 0 {
+            panic!("parsed with errors: {:?}", self.sink.drain());
+        }
+
+        expr.unwrap()
+    }
+
+    fn parse_stmt(&mut self, source: &str) -> StmtId {
+        let lexer = Lexer::new(source.as_bytes());
+        let mut parser = Parser::new(lexer, &mut self.interner, &mut self.sink, &mut self.arena);
+
+        let stmt = parser.parse_stmt();
+        if stmt.is_none() || self.sink.error_count() > 0 {
+            panic!("parsed with errors: {:?}", self.sink.drain());
+        }
+
+        stmt.unwrap()
+    }
+
+    fn assert_err(&mut self, source: &str) {
+        let lexer = Lexer::new(source.as_bytes());
+        let mut parser = Parser::new(lexer, &mut self.interner, &mut self.sink, &mut self.arena);
+
+        let _ = parser.parse_program();
+        assert!(
+            self.sink.error_count() > 0,
+            "expected errors but found none: '{}'",
+            source
+        );
+    }
+
+    fn resolve(&self, sym: Symbol) -> &str {
+        self.interner.resolve(sym)
+    }
+
+    fn get_expr(&self, id: ExprId) -> &AstExpr {
+        self.arena.get_expr(id)
+    }
+
+    fn get_stmt(&self, id: StmtId) -> &AstStmt {
+        self.arena.get_stmt(id)
+    }
 }
 
-fn parse_stmt(source: &str) -> (StmtId, AstArena, Interner) {
-    let (stmt, ast, interner, _) = parse(source, |parser| parser.parse_stmt());
-
-    (stmt.expect("expected statement"), ast, interner)
-}
-
-fn assert_symbol(interner: &Interner, symbol: &Symbol, expected: &str) {
-    assert_eq!(interner.resolve(*symbol), expected, "expected {expected}");
-}
-
-macro_rules! assert_branch {
+macro_rules! assert_match {
     ($value:expr, $pattern:pat => $body:expr) => {
         match $value {
             $pattern => $body,
             _ => panic!(
-                "assertion failed: `{:?}` does not match `{}`",
+                "Assertion failed: `{:?}` does not match `{}`",
                 $value,
                 stringify!($pattern)
             ),
@@ -50,156 +82,111 @@ macro_rules! assert_branch {
 }
 
 #[test]
-fn test_literal() {
-    let (expr, ast, interner) = parse_expr("42");
-    let node = ast.get_expr(expr);
+fn test_primaries() {
+    let mut env = TestEnv::new();
 
-    // integer
-    assert_branch!(node, AstExpr::Integer(symbol) => {
-        assert_symbol(&interner, symbol, "42");
+    // floats
+    let id = env.parse_expr("3.1415");
+    assert_match!(env.get_expr(id), AstExpr::Float(s) => assert_eq!(env.resolve(*s), "3.1415"));
+
+    // complex identifiers (underscores/digits)
+    let id = env.parse_expr("_var_123");
+    assert_match!(env.get_expr(id), AstExpr::Identifier(s) => assert_eq!(env.resolve(*s), "_var_123"));
+
+    // grouping
+    let id = env.parse_expr("(42)");
+    assert_match!(env.get_expr(id), AstExpr::Integer(s) => assert_eq!(env.resolve(*s), "42"));
+}
+
+#[test]
+fn test_precedence_deep() {
+    let mut env = TestEnv::new();
+
+    // unary, binary, grouping
+    // -(1 + 2) * 3
+
+    let id = env.parse_expr("-(1 + 2) * 3");
+    assert_match!(env.get_expr(id), AstExpr::Binary { op: BinaryOp::Multiply, lhs, rhs } => {
+
+        // lhs -> op: -, operand: (1 + 2)
+        assert_match!(env.get_expr(*lhs), AstExpr::Unary { op: UnaryOp::Negate, operand } => {
+            assert_match!(env.get_expr(*operand), AstExpr::Binary { op: BinaryOp::Add, .. } => {});
+        });
+
+        // rhs -> 3
+        assert_match!(env.get_expr(*rhs), AstExpr::Integer(s) => {
+            assert_eq!(env.resolve(*s), "3")
+        });
     });
 
-    let (expr, ast, interner) = parse_expr("abc");
+    // right associativity
+    // !!abc
 
-    // boolean
-    assert_branch!(ast.get_expr(expr), AstExpr::Identifier(symbol) => {
-        assert_symbol(&interner, symbol, "abc");
+    let id = env.parse_expr("!!abc");
+    assert_match!(env.get_expr(id), AstExpr::Unary { op: UnaryOp::Not, operand: inner_id } => {
+        assert_match!(env.get_expr(*inner_id), AstExpr::Unary { op: UnaryOp::Not, .. } => {});
     });
 }
 
 #[test]
-fn test_fn_call() {
-    let (expr, ast, interner) = parse_expr("f(1, 2)");
-    let node = ast.get_expr(expr);
+fn test_call_variants() {
+    let mut env = TestEnv::new();
 
-    assert_branch!(node, AstExpr::Call { callee, args } => {
-        assert_branch!(ast.get_expr(*callee), AstExpr::Identifier(symbol) => {
-            assert_symbol(&interner, symbol, "f");
-        });
+    // zero arguments
+    // init()
 
-        assert_eq!(args.len(), 2);
+    let id = env.parse_expr("init()");
+    assert_match!(env.get_expr(id), AstExpr::Call { args, .. } => {
+        assert_eq!(args.len(), 0)
+    });
 
-        assert_branch!(ast.get_expr(args[0]), AstExpr::Integer(symbol) => {
-            assert_symbol(&interner, symbol, "1");
-        });
+    // nested calls
+    // f(g(1))
 
-        assert_branch!(ast.get_expr(args[1]), AstExpr::Integer(symbol) => {
-            assert_symbol(&interner, symbol, "2");
+    let id: ExprId = env.parse_expr("f(g(1))");
+    assert_match!(env.get_expr(id), AstExpr::Call { args, .. } => {
+        assert_match!(env.get_expr(args[0]), AstExpr::Call { .. } => {});
+    });
+
+    // chained calls
+    // get_f()(1)
+
+    let id = env.parse_expr("get_f()(1)");
+    assert_match!(env.get_expr(id), AstExpr::Call { callee, .. } => {
+        assert_match!(env.get_expr(*callee), AstExpr::Call { .. } => {});
+    });
+}
+
+#[test]
+fn test_statements() {
+    let mut env = TestEnv::new();
+
+    // expression as statement
+    let id = env.parse_stmt("1 + 2;");
+    assert_match!(env.get_stmt(id), AstStmt::Expr(expr_id) => {
+        assert_match!(env.get_expr(*expr_id), AstExpr::Binary { .. } => {});
+    });
+
+    // reusing the same symbol
+    let id = env.parse_stmt("let x = x;");
+    assert_match!(env.get_stmt(id), AstStmt::Let { name, value } => {
+        assert_match!(env.get_expr(*value), AstExpr::Identifier(s) => {
+            assert_eq!(env.resolve(*s), "x");
+            assert_eq!(*name, *s)
         });
     });
 }
 
 #[test]
-fn test_binary_expr() {
-    let (expr, ast, interner) = parse_expr("1 + 2");
-    let node = ast.get_expr(expr);
+fn test_parser_errors() {
+    let mut env = TestEnv::new();
 
-    assert_branch!(node, AstExpr::Binary { op, lhs, rhs } => {
-        assert_eq!(*op, BinaryOp::Add);
+    // missing semicolon
+    env.assert_err("let x = 5");
 
-        let lhs = ast.get_expr(*lhs);
-        let rhs = ast.get_expr(*rhs);
+    // missing closing paren (TODO)
+    // env.assert_err("f(1, 2");
 
-        assert_branch!(lhs, AstExpr::Integer(symbol) => {
-            assert_symbol(&interner, symbol, "1");
-        });
-
-        assert_branch!(rhs, AstExpr::Integer(symbol) => {
-            assert_symbol(&interner, symbol, "2");
-        });
-    })
-}
-
-#[test]
-fn test_nested_precedence() {
-    let (expr, ast, interner) = parse_expr("1 + 2 * 3");
-    let node = ast.get_expr(expr);
-
-    assert_branch!(node, AstExpr::Binary { op, lhs, rhs } => {
-        assert_eq!(*op, BinaryOp::Add);
-
-        let lhs = ast.get_expr(*lhs);
-        let rhs = ast.get_expr(*rhs);
-
-        assert_branch!(lhs, AstExpr::Integer(symbol) => {
-            assert_symbol(&interner, symbol, "1");
-        });
-
-        assert_branch!(rhs, AstExpr::Binary { op, lhs, rhs } => {
-            assert_eq!(*op, BinaryOp::Multiply);
-
-            let lhs = ast.get_expr(*lhs);
-            let rhs = ast.get_expr(*rhs);
-
-            assert_branch!(lhs, AstExpr::Integer(symbol) => {
-                assert_symbol(&interner, symbol, "2");
-            });
-
-            assert_branch!(rhs, AstExpr::Integer(symbol) => {
-                assert_symbol(&interner, symbol, "3");
-            });
-        });
-    })
-}
-
-#[test]
-fn test_associativity() {
-    let (expr, ast, interner) = parse_expr("1 + 2 + 3");
-    let node = ast.get_expr(expr);
-
-    assert_branch!(node, AstExpr::Binary { op, lhs, rhs } => {
-        assert_eq!(*op, BinaryOp::Add);
-
-        let lhs = ast.get_expr(*lhs);
-        let rhs = ast.get_expr(*rhs);
-
-        assert_branch!(lhs, AstExpr::Binary { op, lhs, rhs } => {
-            assert_eq!(*op, BinaryOp::Add);
-
-            let lhs = ast.get_expr(*lhs);
-            let rhs = ast.get_expr(*rhs);
-
-            assert_branch!(lhs, AstExpr::Integer(symbol) => {
-                assert_symbol(&interner, symbol, "1");
-            });
-
-            assert_branch!(rhs, AstExpr::Integer(symbol) => {
-                assert_symbol(&interner, symbol, "2");
-            });
-        });
-
-        assert_branch!(rhs, AstExpr::Integer(symbol) => {
-            assert_symbol(&interner, symbol, "3");
-        });
-    })
-}
-
-#[test]
-fn test_unary_expr() {
-    let (expr, ast, interner) = parse_expr("-1");
-    let node = ast.get_expr(expr);
-
-    assert_branch!(node, AstExpr::Unary { op, operand } => {
-        assert_eq!(*op, UnaryOp::Negate);
-
-        let operand = ast.get_expr(*operand);
-        assert_branch!(operand, AstExpr::Integer(symbol) => {
-            assert_symbol(&interner, symbol, "1");
-        });
-    })
-}
-
-#[test]
-fn test_let_stmt() {
-    let (stmt, ast, interner) = parse_stmt("let x = 1;");
-    let node = ast.get_stmt(stmt);
-
-    assert_branch!(node, AstStmt::Let { name, value } => {
-        assert_symbol(&interner, name, "x");
-
-        let value = ast.get_expr(*value);
-        assert_branch!(value, AstExpr::Integer(symbol) => {
-            assert_symbol(&interner, symbol, "1");
-        });
-    })
+    // expected expression but found operator
+    env.assert_err("let x = +;");
 }

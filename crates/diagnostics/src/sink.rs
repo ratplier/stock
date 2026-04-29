@@ -28,7 +28,7 @@ impl DiagnosticSink {
         self.error_count
     }
 
-    pub fn drain(self) -> Vec<Diagnostic> {
-        self.diagnostics
+    pub fn drain(&mut self) -> Vec<Diagnostic> {
+        std::mem::take(&mut self.diagnostics)
     }
 }
