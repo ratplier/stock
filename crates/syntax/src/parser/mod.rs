@@ -5,7 +5,7 @@ use stock_diagnostics::DiagnosticSink;
 use stock_source::{Interner, Span, Token, TokenKind};
 
 use crate::lexer::Lexer;
-use stock_ast::{AstArena, BinaryOp, Block, ExprId, StmtId, UnaryOp};
+use stock_ast::{AstArena, AstExpr, BinaryOp, Block, ExprId, StmtId, UnaryOp};
 
 const RECOVERY_TOKENS: &[TokenKind] = &[TokenKind::Let];
 const CLOSING_RECOVERY_TOKENS: &[TokenKind] = &[TokenKind::RBrace, TokenKind::Semicolon];
@@ -362,13 +362,17 @@ impl Parser<'_> {
         Some(self.ast.let_stmt(name, value, span))
     }
 
+    fn requires_semicolon(&self, expr: ExprId) -> bool {
+        !matches!(self.ast.get_expr(expr), AstExpr::Block(..))
+    }
+
     fn parse_expr_stmt(&mut self) -> Option<StmtId> {
         let expr = self.parse_expr()?;
 
         let found_semicolon = self.consume(TokenKind::Semicolon);
 
         let at_rbrace = self.at(TokenKind::RBrace);
-        let requires_semicolon = self.ast.requires_semicolon(expr);
+        let requires_semicolon = self.requires_semicolon(expr);
 
         // error only if
         // 1. there isnt a semicolon

@@ -69,10 +69,6 @@ impl AstArena {
     pub fn get_item_span(&self, id: ItemId) -> Span {
         self.item_spans[id.0 as usize]
     }
-
-    pub fn requires_semicolon(&self, expr: ExprId) -> bool {
-        !matches!(self.get_expr(expr), AstExpr::Block(..))
-    }
 }
 
 impl AstArena {
