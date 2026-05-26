@@ -154,17 +154,12 @@ mod token_kind {
 // parsing helpers
 impl Parser<'_> {
     fn expect_semicolon(&mut self) -> Option<Token> {
-        let at_semicolon = self.at(TokenKind::Semicolon);
-
-        if !at_semicolon {
-            let span = Span::from_position(self.position());
-
-            self.sink.expected_semicolon(span);
-            self.synchronize(RECOVERY_TOKENS);
-
-            None
-        } else {
+        if self.at(TokenKind::Semicolon) {
             Some(self.advance())
+        } else {
+            let span = Span::from_position(self.position());
+            self.sink.expected_semicolon(span);
+            None
         }
     }
 
@@ -212,9 +207,8 @@ impl Parser<'_> {
         let block = Block {
             stmts: self.parse_stmts(),
         };
-        println!("{:?}{:?}", self.peek(), self.buffer[1]);
         let end = self.expect(TokenKind::RBrace)?.span;
-        println!("post");
+
         let span = Span::merge(start, end);
         Some(self.ast.block(block, span))
     }
@@ -379,10 +373,7 @@ impl Parser<'_> {
         // 2. we arent at the end of a block
         if !found_semicolon && !at_rbrace && requires_semicolon {
             let span = Span::from_position(self.position());
-
             self.sink.expected_semicolon(span);
-            self.synchronize(RECOVERY_TOKENS);
-
             return None;
         }
 
