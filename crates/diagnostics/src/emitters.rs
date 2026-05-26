@@ -44,27 +44,17 @@ impl DiagnosticSink {
     }
 
     pub fn expected_token(&mut self, expected: TokenKind, got: TokenKind, span: Span) -> &mut Self {
-        let note = format!(
-            "expected {} got {}",
-            expected.to_readable_str(),
-            got.to_readable_str()
-        );
-
         let error = self
             .parse_error(ParseError::ExpectedToken { expected, got })
-            .with_label(Label::primary(span, "unexpected token"))
-            .with_note(note);
+            .with_label(Label::primary(span, "unexpected token"));
 
         self.emit(error)
     }
 
     pub fn unexpected_token(&mut self, token: TokenKind, span: Span) -> &mut Self {
-        let note = format!("expected {}", token.to_readable_str());
-
         let error = self
             .parse_error(ParseError::UnexpectedToken { token })
-            .with_label(Label::primary(span, "unexpected token"))
-            .with_note(note);
+            .with_label(Label::primary(span, "unexpected token"));
 
         self.emit(error)
     }
