@@ -25,7 +25,7 @@ impl TestEnv {
 
         let expr = parser.parse_expr();
         if expr.is_none() || self.sink.error_count() > 0 {
-            panic!("parsed with errors: {:?}", self.sink.drain());
+            panic!("parsed with errors: {:#?}", self.sink.drain());
         }
 
         expr.unwrap()
@@ -37,7 +37,7 @@ impl TestEnv {
 
         let stmt = parser.parse_stmt();
         if stmt.is_none() || self.sink.error_count() > 0 {
-            panic!("parsed with errors: {:?}", self.sink.drain());
+            panic!("parsed with errors: {:#?}", self.sink.drain());
         }
 
         stmt.unwrap()
@@ -163,8 +163,10 @@ fn test_statements() {
 
     // expression as statement
     let id = env.parse_stmt("1 + 2;");
-    assert_match!(env.get_stmt(id), AstStmt::Expr(expr_id) => {
-        assert_match!(env.get_expr(*expr_id), AstExpr::Binary { .. } => {});
+    assert_match!(env.get_stmt(id), AstStmt::Expr { expr, has_semicolon }=> {
+        assert_match!(env.get_expr(*expr), AstExpr::Binary { .. } => {});
+        assert!(*has_semicolon)
+
     });
 
     // reusing the same symbol
@@ -173,6 +175,31 @@ fn test_statements() {
         assert_match!(env.get_expr(*value), AstExpr::Identifier(s) => {
             assert_eq!(env.resolve(*s), "x");
             assert_eq!(*name, *s)
+        });
+    });
+}
+
+#[test]
+fn test_blocks() {
+    let mut env = TestEnv::new();
+
+    // block as expression
+    let id = env.parse_expr("{ 1 + 2 }");
+    assert_match!(env.get_expr(id), AstExpr::Block(block) => {
+        assert_match!(env.get_stmt(block.stmts[0]), AstStmt::Expr { expr, has_semicolon } => {
+            assert_match!(env.get_expr(*expr), AstExpr::Binary { .. } => {});
+            assert!(!*has_semicolon);
+        });
+    });
+
+    // block as statement
+    let id = env.parse_stmt("let a = { 2 + 3 };");
+    assert_match!(env.get_stmt(id), AstStmt::Let { value, .. } => {
+        assert_match!(env.get_expr(*value), AstExpr::Block(block) => {
+            assert_match!(env.get_stmt(block.stmts[0]), AstStmt::Expr { expr, has_semicolon } => {
+                assert_match!(env.get_expr(*expr), AstExpr::Binary { .. } => {});
+                assert!(!*has_semicolon)
+            });
         });
     });
 }
@@ -189,4 +216,16 @@ fn test_parser_errors() {
 
     // expected expression but found operator
     env.assert_err("let x = +;");
+}
+
+#[test]
+fn playground() {
+    let mut env = TestEnv::new();
+    let src = r"{
+        let x = 400 * a() + 200;
+        let y = 300 * b() + 100
+    }";
+
+    env.parse_stmt(src);
+    println!("{:?}", env.sink.drain());
 }

@@ -1,5 +1,5 @@
 use crate::id::{ExprId, ItemId, StmtId};
-use crate::nodes::{AstExpr, AstItem, AstStmt, BinaryOp, UnaryOp};
+use crate::nodes::{AstExpr, AstItem, AstStmt, BinaryOp, Block, UnaryOp};
 use stock_source::{Span, Symbol};
 
 #[derive(Debug, Default)]
@@ -69,6 +69,10 @@ impl AstArena {
     pub fn get_item_span(&self, id: ItemId) -> Span {
         self.item_spans[id.0 as usize]
     }
+
+    pub fn requires_semicolon(&self, expr: ExprId) -> bool {
+        !matches!(self.get_expr(expr), AstExpr::Block(..))
+    }
 }
 
 impl AstArena {
@@ -95,6 +99,10 @@ impl AstArena {
     pub fn call(&mut self, callee: ExprId, args: Vec<ExprId>, span: Span) -> ExprId {
         self.add_expr(AstExpr::Call { callee, args }, span)
     }
+
+    pub fn block(&mut self, block: Block, span: Span) -> ExprId {
+        self.add_expr(AstExpr::Block(block), span)
+    }
 }
 
 impl AstArena {
@@ -102,7 +110,17 @@ impl AstArena {
         self.add_stmt(AstStmt::Let { name, value }, span)
     }
 
-    pub fn expr_stmt(&mut self, expr: ExprId, span: Span) -> StmtId {
-        self.add_stmt(AstStmt::Expr(expr), span)
+    pub fn expr_stmt(&mut self, expr: ExprId, has_semicolon: bool, span: Span) -> StmtId {
+        self.add_stmt(
+            AstStmt::Expr {
+                expr,
+                has_semicolon,
+            },
+            span,
+        )
+    }
+
+    pub fn block_stmt(&mut self, block: Block, span: Span) -> StmtId {
+        self.add_stmt(AstStmt::Block(block), span)
     }
 }

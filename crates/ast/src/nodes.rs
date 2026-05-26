@@ -1,4 +1,4 @@
-use crate::id::ExprId;
+use crate::id::{ExprId, StmtId};
 use stock_source::Symbol;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -13,6 +13,11 @@ pub enum BinaryOp {
 pub enum UnaryOp {
     Negate,
     Not,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Block {
+    pub stmts: Vec<StmtId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -37,13 +42,17 @@ pub enum AstExpr {
         callee: ExprId,
         args: Vec<ExprId>,
     },
+
+    Block(Block),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AstStmt {
     Let { name: Symbol, value: ExprId },
 
-    Expr(ExprId),
+    Expr { expr: ExprId, has_semicolon: bool },
+
+    Block(Block),
 }
 
 #[derive(Debug)]

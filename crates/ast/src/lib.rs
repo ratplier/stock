@@ -5,5 +5,5 @@ mod nodes;
 pub use {
     arena::AstArena,
     id::{ExprId, ItemId, StmtId},
-    nodes::{AstExpr, AstItem, AstStmt, BinaryOp, UnaryOp},
+    nodes::{AstExpr, AstItem, AstStmt, BinaryOp, Block, UnaryOp},
 };

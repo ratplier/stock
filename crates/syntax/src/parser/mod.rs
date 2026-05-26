@@ -5,9 +5,10 @@ use stock_diagnostics::DiagnosticSink;
 use stock_source::{Interner, Span, Token, TokenKind};
 
 use crate::lexer::Lexer;
-use stock_ast::{AstArena, BinaryOp, ExprId, StmtId, UnaryOp};
+use stock_ast::{AstArena, BinaryOp, Block, ExprId, StmtId, UnaryOp};
 
 const RECOVERY_TOKENS: &[TokenKind] = &[TokenKind::Let];
+const CLOSING_RECOVERY_TOKENS: &[TokenKind] = &[TokenKind::RBrace, TokenKind::Semicolon];
 
 #[derive(Debug)]
 pub struct Parser<'a> {
@@ -153,17 +154,18 @@ mod token_kind {
 // parsing helpers
 impl Parser<'_> {
     fn expect_semicolon(&mut self) -> Option<Token> {
-        let token = self.expect(TokenKind::Semicolon);
+        let at_semicolon = self.at(TokenKind::Semicolon);
 
-        if token.is_none() {
-            let position = self.position();
-            let span = Span::from_position(position);
+        if !at_semicolon {
+            let span = Span::from_position(self.position());
+
             self.sink.expected_semicolon(span);
-
             self.synchronize(RECOVERY_TOKENS);
-        }
 
-        token
+            None
+        } else {
+            Some(self.advance())
+        }
     }
 
     fn parse_call(&mut self, callee: ExprId) -> Option<ExprId> {
@@ -180,7 +182,7 @@ impl Parser<'_> {
                 return None;
             }
 
-            if self.consume(TokenKind::Comma) {
+            if !self.consume(TokenKind::Comma) {
                 break;
             }
         }
@@ -189,6 +191,32 @@ impl Parser<'_> {
         let span = Span::merge(start, closing_span);
 
         Some(self.ast.call(callee, args, span))
+    }
+
+    fn parse_stmts(&mut self) -> Vec<StmtId> {
+        let mut stmts = Vec::new();
+
+        while !self.at(TokenKind::RBrace) && !self.at(TokenKind::EndOfFile) {
+            if let Some(stmt) = self.parse_stmt() {
+                stmts.push(stmt);
+            } else {
+                self.synchronize(CLOSING_RECOVERY_TOKENS);
+            }
+        }
+
+        stmts
+    }
+
+    fn parse_block(&mut self) -> Option<ExprId> {
+        let start = self.expect(TokenKind::LBrace)?.span;
+        let block = Block {
+            stmts: self.parse_stmts(),
+        };
+        println!("{:?}{:?}", self.peek(), self.buffer[1]);
+        let end = self.expect(TokenKind::RBrace)?.span;
+        println!("post");
+        let span = Span::merge(start, end);
+        Some(self.ast.block(block, span))
     }
 }
 
@@ -286,11 +314,19 @@ impl Parser<'_> {
             return Some(ast_node);
         }
 
-        if self.consume(TokenKind::LParen) {
+        // grouping
+        if self.at(TokenKind::LParen) {
+            self.advance();
+
             let expr = self.parse_expr()?;
             self.expect(TokenKind::RParen)?;
 
             return Some(expr);
+        }
+
+        // block
+        if self.at(TokenKind::LBrace) {
+            return self.parse_block();
         }
 
         self.sink.expected_expression(token.span);
@@ -328,9 +364,32 @@ impl Parser<'_> {
 
     fn parse_expr_stmt(&mut self) -> Option<StmtId> {
         let expr = self.parse_expr()?;
-        let semicolon = self.expect_semicolon()?;
 
-        let span = Span::merge(self.ast.get_expr_span(expr), semicolon.span);
-        Some(self.ast.expr_stmt(expr, span))
+        let found_semicolon = self.consume(TokenKind::Semicolon);
+
+        let at_rbrace = self.at(TokenKind::RBrace);
+        let requires_semicolon = self.ast.requires_semicolon(expr);
+
+        // error only if
+        // 1. there isnt a semicolon
+        // 2. we arent at the end of a block
+        if !found_semicolon && !at_rbrace && requires_semicolon {
+            let span = Span::from_position(self.position());
+
+            self.sink.expected_semicolon(span);
+            self.synchronize(RECOVERY_TOKENS);
+
+            return None;
+        }
+
+        let expr_span = self.ast.get_expr_span(expr);
+
+        let span = if found_semicolon {
+            Span::merge(expr_span, Span::from_position(self.position()))
+        } else {
+            expr_span
+        };
+
+        Some(self.ast.expr_stmt(expr, found_semicolon, span))
     }
 }
